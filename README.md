@@ -300,6 +300,7 @@
             <option value="Xenova/whisper-base.en">whisper-base.en (better, slower)</option>
           </select>
           <div class="small">Runs locally in your browser.</div>
+          <div class="small">After loading, the model dropdown locks (reload the page to switch models).</div>
         </div>
 
         <div class="col" style="flex:1 1 360px">
@@ -455,6 +456,33 @@ const srEl = $("sr");
     // Inference loop
     let inferTimer = null;
     let lastEmitted = "";
+
+    // Track which model is currently loaded (we lock the dropdown after load to prevent confusion/lag)
+    let loadedModelId = null;
+
+    // Small non-blocking UI feedback for laggy devices
+    let statusRestoreTimer = null;
+    function setStatusTemp(msg, ms=900){
+      const prev = statusEl.textContent;
+      setStatus(msg);
+      if (statusRestoreTimer) clearTimeout(statusRestoreTimer);
+      statusRestoreTimer = setTimeout(() => setStatus(prev), ms);
+    }
+
+    // Debounce expensive setting changes so clicks feel responsive
+    let restartDebounce = null;
+    function scheduleInferenceRestart(note){
+      if (!audioCtx) return;
+      if (restartDebounce) clearTimeout(restartDebounce);
+      // Pause inference briefly so UI updates happen immediately
+      stopInferenceLoop();
+      setStatusTemp(note || "applying…", 500);
+      restartDebounce = setTimeout(() => {
+        startInferenceLoop();
+        setStatusTemp("applied", 650);
+      }, 350);
+    }
+
 
     function setStatus(s){ statusEl.textContent = s; }
 
@@ -717,12 +745,17 @@ async function loadModel(){
       setStatus("loading model…");
       dotModel.classList.add("warn");
       modelState.textContent = "LOADING…";
+      setStatusTemp("loading model…", 900);
 
       const device = (navigator.gpu ? "webgpu" : "wasm");
       asr = await pipeline("automatic-speech-recognition", modelId, { device });
 
       modelLoaded = true;
+      loadedModelId = modelId;
+      // Lock model selector after load so changing it won't throw errors or feel broken.
+      modelSel.disabled = true;
       setStatus("model loaded");
+      dotModel.classList.remove("warn");
       dotModel.classList.add("on");
       modelState.textContent = "READY";
     }
@@ -773,6 +806,8 @@ async function loadModel(){
       }
 
       setStatus("requesting mic…");
+      btnStart.disabled = true;
+      setStatusTemp("requesting mic…", 800);
       try{
         stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation:false, noiseSuppression:false, autoGainControl:false } });
       }catch(e){
@@ -780,6 +815,7 @@ async function loadModel(){
         const msg = e?.message || String(e);
         showOverlay({ title: "Microphone error", subtitle: "Browser could not access the microphone.", errorHtml: `<b>${name}</b>: ${msg}` });
         setStatus("mic error");
+        btnStart.disabled = false;
         return;
       }
 
@@ -1023,22 +1059,26 @@ async function loadModel(){
 
     // Controls
     shiftHz.addEventListener("input", () => { shiftHzLabel.textContent = shiftHz.value; });
-    winSec.addEventListener("input", () => { winSecLabel.textContent = Number(winSec.value).toFixed(1); });
+    winSec.addEventListener("input", () => { winSecLabel.textContent = Number(winSec.value).toFixed(1); if (audioCtx) scheduleInferenceRestart("window…"); });
     updSec.addEventListener("input", () => {
       updSecLabel.textContent = Number(updSec.value).toFixed(1);
-      if (audioCtx) startInferenceLoop();
+      if (audioCtx) scheduleInferenceRestart("update rate…");
     });
 
     function onModeChange(){
       // reset duplicate tracking when mode changes
       lastEmitted = "";
+      if (audioCtx) scheduleInferenceRestart("mode…");
     }
     modeNormal.addEventListener("change", onModeChange);
     modeShift.addEventListener("change", onModeChange);
 
     modelSel.addEventListener("change", () => {
-      if (modelLoaded) {
-        showOverlay({ title: "Model already loaded", subtitle: "Reload the page to switch models.", errorHtml: "Whisper model can’t be swapped mid-session in this one-file build." });
+      // If a model is already loaded, keep selection locked (no error popups).
+      if (modelLoaded && loadedModelId) {
+        // Revert UI to the loaded model
+        modelSel.value = loadedModelId;
+        setStatusTemp("model locked (reload to change)", 1200);
       }
     });
 
@@ -1055,6 +1095,7 @@ async function loadModel(){
       }
       // reset dedupe memory so first translated line shows
       lastEmitted = "";
+      if (audioCtx) scheduleInferenceRestart("translate…");
     });
 
 
