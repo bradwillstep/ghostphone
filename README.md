@@ -174,13 +174,7 @@
         <button id="btnHelp">Mic Help</button>
         <span class="pill" id="status">idle</span>
       </div>
-
-      <div class="warn" style="margin-top:10px">
-        <b>Live mode (Option A):</b> audio is captured continuously via the Web Audio graph (no MediaRecorder chunks).
-        Transcription still runs in short windows for accuracy (Whisper isn’t truly token-streaming).
-      </div>
-
-      <div style="margin-top:10px">
+<div style="margin-top:10px">
         <canvas id="spec" width="1200" height="360"></canvas>
       </div>
 
@@ -212,6 +206,15 @@
           </label>
           <div class="small">If off, words still appear in the output box.</div>
         </div>
+        <div style="height:6px"></div>
+        <div class="small"><b>Translate</b></div>
+        <label class="toggle" title="Translate detected speech to English">
+          <input id="translateOn" type="checkbox" />
+          <span class="track"><span class="thumb"></span></span>
+          <span class="label">Translate to English</span>
+        </label>
+        <div class="small">Requires a multilingual model (recommended: <b>whisper-tiny</b>).</div>
+
       </div>
 
       <div class="row" style="margin-top:10px">
@@ -328,6 +331,9 @@
     const modeShift = $("modeShift");
     const voiceOn = $("voiceOn");
     const dedupeOn = $("dedupeOn");
+
+    const translateOn = $("translateOn");
+    
 
     const shiftHz = $("shiftHz");
     const shiftHzLabel = $("shiftHzLabel");
@@ -509,6 +515,30 @@
       return { peakIdx, hz };
     }
 
+    function maxAbs(pcm){
+      let m = 0;
+      for (let i = 0; i < pcm.length; i++){
+        const a = Math.abs(pcm[i]);
+        if (a > m) m = a;
+      }
+      return m;
+    }
+
+    function normalizeIfNeeded(pcm){
+      // If audio is very quiet, normalize a bit so the model doesn't treat it as blank.
+      // Hard cap to avoid blasting noise.
+      const m = maxAbs(pcm);
+      if (m <= 0) return { pcm, max: 0 };
+      // If the max is below ~-50 dBFS (~0.003), boost up to ~0.05 max.
+      if (m < 0.003){
+        const gain = Math.min(20, 0.05 / m);
+        const out = new Float32Array(pcm.length);
+        for (let i = 0; i < pcm.length; i++) out[i] = pcm[i] * gain;
+        return { pcm: out, max: m * gain };
+      }
+      return { pcm, max: m };
+    }
+
     function applyHeterodyneToPCM(pcm, sampleRate, shiftHzVal){
       const outArr = new Float32Array(pcm.length);
       const twoPi = 2 * Math.PI;
@@ -556,9 +586,30 @@
       return outArr;
     }
 
-    async function loadModel(){
+    
+    function modelIsEnglishOnly(modelId){
+      // crude heuristic: models ending with .en are English-only in this UI
+      return String(modelId || "").toLowerCase().includes(".en");
+    }
+
+    function requireMultilingualForTranslate(){
+      const modelId = modelSel.value;
+      if (translateOn.checked && modelIsEnglishOnly(modelId)){
+        showOverlay({
+          title: "Translation needs a multilingual model",
+          subtitle: "You selected an English-only model (.en).",
+          errorHtml: "Choose <b>whisper-tiny</b> (multilingual) in the model dropdown, then reload the page to load it."
+        });
+        return false;
+      }
+      return true;
+    }
+
+async function loadModel(){
       if (modelLoaded) return;
       btnLoadModel.disabled = true;
+
+      if (!requireMultilingualForTranslate()) { btnLoadModel.disabled = false; return; }
 
       env.allowLocalModels = false;
       env.useBrowserCache = true;
@@ -722,24 +773,37 @@
       const sr = audioCtx.sampleRate;
       const windowSec = Number(winSec.value);
 
-      // need at least ~0.5s of audio
-      if (rbFilled < Math.floor(sr * 0.5)) return;
+      // need at least ~0.8s of audio in the ring buffer
+      if (rbFilled < Math.floor(sr * 0.8)) return;
+
+      // Pull last window and check energy BEFORE calling the model.
+      let pcm = rbGetLast(windowSec, sr);
+
+      // Basic silence/blank detection. If too quiet, skip rather than triggering blank_audio.
+      const rawMax = maxAbs(pcm);
+      if (rawMax < 0.0008){
+        // too quiet (roughly below -62 dBFS), treat as silence
+        return;
+      }
 
       busy = true;
       setStatus("transcribing…");
 
       try{
-        let pcm = rbGetLast(windowSec, sr);
-
         // Mode: shift or normal
         if (modeShift.checked){
           pcm = applyHeterodyneToPCM(pcm, sr, Number(shiftHz.value));
         }
 
+        // Normalize very quiet audio slightly to avoid blank_audio.
+        const norm = normalizeIfNeeded(pcm);
+        pcm = norm.pcm;
+
         const result = await asr(pcm, {
           chunk_length_s: windowSec,
           stride_length_s: 0.2,
-          return_timestamps: false
+          return_timestamps: false,
+          task: (translateOn.checked ? "translate" : undefined)
         });
 
         const rawText = (result?.text || "").trim();
@@ -747,9 +811,7 @@
 
         if (cleaned){
           if (dedupeOn.checked){
-            if (cleaned === lastEmitted) {
-              // skip exact repeat
-            } else {
+            if (cleaned !== lastEmitted){
               lastEmitted = cleaned;
               appendWords(cleaned);
               speak(cleaned);
@@ -761,8 +823,14 @@
           }
         }
       } catch (err){
-        console.error(err);
-        showOverlay({ title: "Transcription error", subtitle: "Something went wrong while transcribing.", errorHtml: String(err?.message || err) });
+        const msg = String(err?.message || err);
+        // Common benign case: model reports blank audio
+        if (msg.toLowerCase().includes("blank_audio")){
+          // ignore and continue listening
+        } else {
+          console.error(err);
+          showOverlay({ title: "Transcription error", subtitle: "Something went wrong while transcribing.", errorHtml: msg });
+        }
       } finally {
         busy = false;
         setStatus("listening");
@@ -855,6 +923,22 @@
         showOverlay({ title: "Model already loaded", subtitle: "Reload the page to switch models.", errorHtml: "Whisper model can’t be swapped mid-session in this one-file build." });
       }
     });
+
+    
+    translateOn.addEventListener("change", () => {
+      // If user enables translation after loading an English-only model, show guidance.
+      if (translateOn.checked && modelIsEnglishOnly(modelSel.value)){
+        showOverlay({
+          title: "Switch to multilingual model",
+          subtitle: "Translation requires a multilingual model.",
+          errorHtml: "Select <b>whisper-tiny</b> (multilingual) and reload the page. The current loaded model can't be swapped without reload."
+        });
+        translateOn.checked = false;
+      }
+      // reset dedupe memory so first translated line shows
+      lastEmitted = "";
+    });
+
 
     // Init labels
     shiftHzLabel.textContent = shiftHz.value;
