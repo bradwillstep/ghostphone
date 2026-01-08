@@ -3,94 +3,181 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Ultra Listener — Mic + Spectrum + Shift + AI + Speak</title>
+  <title>Ultra Listener — Terminal Live (No Chunks)</title>
   <style>
-    :root { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; color-scheme: dark; }
-    body { margin: 0; padding: 14px; background: #0b0d10; color: #e8eef6; }
-    h1 { font-size: 18px; margin: 0 0 10px; }
-    .grid { display: grid; gap: 12px; grid-template-columns: 1fr; }
-    @media (min-width: 980px) { .grid { grid-template-columns: 1.2fr 0.8fr; } }
-    .card { background: #12161c; border: 1px solid #222a35; border-radius: 14px; padding: 12px; }
-    .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
-    .col { display:flex; flex-direction: column; gap: 6px; }
-    button {
-      background: #1f6feb; border: 0; color: white; padding: 10px 12px; border-radius: 12px;
-      font-weight: 700; cursor: pointer;
+    :root{
+      color-scheme: dark;
+      --bg:#000000;
+      --panel:#050505;
+      --border:#0f3a18;
+      --green:#35ff6a;
+      --green-dim: rgba(53,255,106,.78);
+      --green-faint: rgba(53,255,106,.28);
+      --warn: rgba(255, 215, 64, .18);
+      --warn-b: rgba(255, 215, 64, .45);
+      --red: #ff4d4d;
+      --font: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
     }
-    button.secondary { background: #2b3442; }
-    button.danger { background: #b42318; }
-    button:disabled { opacity: 0.55; cursor: not-allowed; }
-    label { font-size: 12px; opacity: 0.92; }
-    input[type="range"] { width: min(560px, 100%); }
-    select {
-      background: #0a0c0f; border: 1px solid #222a35; border-radius: 10px; color: #e8eef6;
-      padding: 8px 10px;
+    body{ margin:0; padding:14px; background:var(--bg); color:var(--green); font-family:var(--font); letter-spacing:.2px; }
+    h1{ margin:0 0 10px; font-size:16px; text-shadow:0 0 8px rgba(53,255,106,.25); }
+    .grid{ display:grid; gap:12px; grid-template-columns: 1fr; }
+    @media (min-width: 980px){ .grid{ grid-template-columns: 1.2fr 0.8fr; } }
+    .card{
+      background: linear-gradient(180deg, rgba(53,255,106,.05), transparent 35%), var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      box-shadow: 0 0 0 1px rgba(53,255,106,.08) inset, 0 0 18px rgba(0,0,0,.55);
     }
-    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
-    .small { font-size: 12px; opacity: 0.86; line-height: 1.35; }
-    .pill { padding: 4px 8px; border-radius: 999px; background: #0a0c0f; border: 1px solid #222a35; }
-    canvas { width: 100%; height: 190px; background: #0a0c0f; border-radius: 12px; border: 1px solid #222a35; }
-    textarea {
-      width: 100%; min-height: 240px; resize: vertical; border-radius: 12px;
-      border: 1px solid #222a35; background: #0a0c0f; color: #e8eef6; padding: 12px;
-      font-size: 14px; line-height: 1.45;
+    .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    .col{ display:flex; flex-direction:column; gap:6px; }
+    button{
+      background: transparent; color: var(--green);
+      border: 1px solid var(--border);
+      padding: 10px 12px; border-radius: 10px;
+      font-weight: 800; cursor: pointer;
+      box-shadow: 0 0 0 1px rgba(53,255,106,.08) inset;
     }
-    .tinyarea {
-      width: 100%; min-height: 120px; resize: vertical; border-radius: 12px;
-      border: 1px solid #222a35; background: #0a0c0f; color: #b9c6d8; padding: 10px;
+    button:hover{ box-shadow:0 0 0 1px rgba(53,255,106,.25) inset, 0 0 12px rgba(53,255,106,.12); }
+    button:disabled{ opacity:.55; cursor:not-allowed; }
+    button.danger{ border-color: rgba(255,77,77,.6); color: var(--red); }
+    .pill{
+      display:inline-flex; align-items:center; gap:8px;
+      padding: 4px 8px; border-radius: 999px;
+      border: 1px solid var(--border);
+      background: rgba(53,255,106,.04);
+      color: var(--green-dim);
+      font-size: 12px; white-space: nowrap;
+    }
+    .small{ font-size: 12px; color: var(--green-dim); line-height: 1.35; }
+    .warn{
+      border: 1px solid var(--warn-b);
+      background: var(--warn);
+      border-radius: 10px;
+      padding: 10px;
+      color: rgba(255, 231, 140, .95);
       font-size: 12px; line-height: 1.35;
     }
-    .warn { border: 1px solid #4a2b15; background: #16110c; border-radius: 12px; padding: 10px; }
-    .ok { border: 1px solid #1f3a2a; background: #0e1612; border-radius: 12px; padding: 10px; }
-    hr { border: 0; border-top: 1px solid #222a35; opacity: .7; margin: 10px 0; }
+    canvas{ width:100%; height:190px; border-radius:10px; border:1px solid var(--border); background:#000; }
+    textarea{
+      width:100%; min-height: 300px; resize: vertical;
+      border-radius: 10px; border: 1px solid var(--border);
+      background:#000; color: var(--green);
+      padding: 12px; font-family: var(--font);
+      font-size: 14px; line-height: 1.45;
+      box-shadow: 0 0 0 1px rgba(53,255,106,.08) inset;
+    }
+    textarea::placeholder{ color: rgba(53,255,106,.35); }
+    .banner{
+      display:none; border-radius:10px; padding:10px;
+      border: 1px solid var(--border);
+      background: rgba(53,255,106,.04);
+      color: var(--green-dim);
+      margin-bottom: 12px;
+      font-size: 12px; line-height: 1.35;
+    }
+    .banner.show{ display:block; }
+
+    /* Toggle switch */
+    .toggle{
+      display:inline-flex; align-items:center; gap:10px;
+      border: 1px solid var(--border);
+      background: rgba(53,255,106,.04);
+      padding: 8px 10px;
+      border-radius: 999px;
+      user-select:none;
+    }
+    .toggle input{ display:none; }
+    .toggle .track{
+      width: 42px; height: 22px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: rgba(0,0,0,.7);
+      position: relative;
+      box-shadow: 0 0 0 1px rgba(53,255,106,.08) inset;
+    }
+    .toggle .thumb{
+      width: 18px; height: 18px;
+      border-radius: 999px;
+      position:absolute; top:1px; left:1px;
+      background: rgba(53,255,106,.25);
+      border: 1px solid rgba(53,255,106,.6);
+      transition: transform .18s ease;
+      box-shadow: 0 0 10px rgba(53,255,106,.22);
+    }
+    .toggle input:checked + .track .thumb{ transform: translateX(20px); background: rgba(53,255,106,.85); }
+    .toggle .label{ font-size: 12px; color: var(--green-dim); }
+
+    /* Mode segmented control */
+    .seg{
+      display:inline-flex;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      overflow:hidden;
+      background: rgba(53,255,106,.04);
+    }
+    .seg input{ display:none; }
+    .seg label{
+      padding: 8px 10px;
+      font-size: 12px;
+      color: var(--green-dim);
+      cursor:pointer;
+      border-right: 1px solid rgba(53,255,106,.18);
+    }
+    .seg label:last-child{ border-right: 0; }
+    .seg input:checked + label{
+      color: var(--bg);
+      background: rgba(53,255,106,.85);
+      text-shadow:none;
+    }
+
+    input[type="range"]{ width: min(520px, 100%); accent-color: #35ff6a; }
+    select{
+      background:#000; color: var(--green);
+      border:1px solid var(--border);
+      border-radius: 10px;
+      padding: 8px 10px;
+      font-family: var(--font);
+    }
 
     /* Permission overlay */
-    .overlay {
-      position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
-      background: rgba(0,0,0,0.65); padding: 14px; z-index: 50;
+    .overlay{ position:fixed; inset:0; display:none; align-items:center; justify-content:center; background: rgba(0,0,0,.75); padding:14px; z-index:50; }
+    .overlay.show{ display:flex; }
+    .modal{
+      width:min(820px, 100%); border-radius:14px; background:#000;
+      border: 1px solid var(--border); padding: 12px;
+      box-shadow: 0 0 0 1px rgba(53,255,106,.08) inset, 0 0 24px rgba(0,0,0,.65);
     }
-    .overlay.show { display: flex; }
-    .modal {
-      width: min(820px, 100%); border-radius: 16px; background: #10151c; border: 1px solid #2a3341;
-      box-shadow: 0 10px 35px rgba(0,0,0,.55);
-      padding: 14px;
-    }
-    .modal h2 { margin: 0 0 8px; font-size: 16px; }
-    .modal .sub { margin: 0 0 12px; opacity: 0.9; font-size: 12px; line-height: 1.35; }
-    .steps { display: grid; gap: 10px; grid-template-columns: 1fr; }
-    @media (min-width: 760px) { .steps { grid-template-columns: 1fr 1fr; } }
-    .step { background: #0a0c0f; border: 1px solid #222a35; border-radius: 12px; padding: 10px; }
-    .step b { font-size: 12px; }
-    .muted { opacity: 0.85; font-size: 12px; line-height: 1.35; }
-    .codepill { display:inline-block; padding: 2px 6px; border-radius: 8px; border: 1px solid #222a35; background:#0a0c0f; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }
-    .modal .actions { display:flex; gap:10px; flex-wrap: wrap; align-items:center; justify-content: flex-end; margin-top: 10px; }
-    .banner {
-      display:none; border-radius: 12px; padding: 10px; border: 1px solid #2a3341; background: #0a0c0f;
-    }
-    .banner.show { display:block; }
-    details { border: 1px solid #222a35; border-radius: 12px; padding: 10px; background: #0a0c0f; }
-    summary { cursor: pointer; font-weight: 700; }
-    a { color: #7db1ff; }
+    .modal h2{ margin:0 0 8px; font-size: 14px; color: var(--green); }
+    .modal .sub{ margin:0 0 10px; font-size: 12px; color: var(--green-dim); line-height: 1.35; }
+    .modal .err{ border: 1px solid rgba(255,77,77,.55); background: rgba(255,77,77,.08); border-radius: 10px; padding: 10px; color: rgba(255,150,150,.95); font-size:12px; }
+    .steps{ display:grid; gap:10px; grid-template-columns:1fr; }
+    @media (min-width: 760px){ .steps{ grid-template-columns:1fr 1fr; } }
+    .step{ border: 1px solid var(--border); background: rgba(53,255,106,.04); border-radius: 10px; padding: 10px; }
+    .step b{ font-size: 12px; color: var(--green); }
+    .muted{ font-size: 12px; color: var(--green-dim); line-height: 1.35; }
+    .actions{ display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end; margin-top: 10px; }
+    .codepill{ display:inline-block; padding: 2px 6px; border-radius: 8px; border:1px solid var(--border); background: rgba(53,255,106,.04); }
   </style>
 </head>
 <body>
-  <h1>Ultra Listener — Mic → (Shift/Scan) → AI Transcribe → Speak</h1>
+  <h1>ULTRA LISTENER // TERMINAL LIVE (WEB AUDIO STREAM)</h1>
 
-  <div id="envBanner" class="banner small"></div>
+  <div id="envBanner" class="banner"></div>
 
   <div class="grid">
     <div class="card">
       <div class="row">
         <button id="btnStart">Start Mic</button>
         <button id="btnStop" class="danger" disabled>Stop</button>
-        <button id="btnLoadModel" class="secondary">Load AI Model</button>
-        <button id="btnHelp" class="secondary">Mic Help</button>
-        <span class="pill mono" id="status">idle</span>
+        <button id="btnLoadModel">Load AI Model</button>
+        <button id="btnHelp">Mic Help</button>
+        <span class="pill" id="status">idle</span>
       </div>
 
-      <div class="warn small" style="margin-top:10px">
-        <b>Safety:</b> Monitoring audio to speakers can cause feedback. Use headphones.
-        Monitoring volume is locked to <span class="mono">0.00</span> unless you enable <b>Headphone Safe</b>.
+      <div class="warn" style="margin-top:10px">
+        <b>Live mode (Option A):</b> audio is captured continuously via the Web Audio graph (no MediaRecorder chunks).
+        Transcription still runs in short windows for accuracy (Whisper isn’t truly token-streaming).
       </div>
 
       <div style="margin-top:10px">
@@ -98,222 +185,127 @@
       </div>
 
       <div class="row small" style="margin-top:8px">
-        <span class="pill mono">sampleRate: <span id="sr">-</span> Hz</span>
-        <span class="pill mono">nyquist: <span id="ny">-</span> Hz</span>
-        <span class="pill mono">peak: <span id="pk">-</span> Hz</span>
-        <span class="pill mono">centroid: <span id="cent">-</span> Hz</span>
-        <span class="pill mono">level: <span id="lvl">-</span> dBFS</span>
-        <span class="pill mono">anomaly: <span id="anom">off</span></span>
+        <span class="pill">sampleRate: <span id="sr">-</span> Hz</span>
+        <span class="pill">nyquist: <span id="ny">-</span> Hz</span>
+        <span class="pill">peak: <span id="pk">-</span> Hz</span>
+        <span class="pill">level: <span id="lvl">-</span> dBFS</span>
       </div>
 
       <div class="row" style="margin-top:10px">
-        <div class="col" style="flex: 1 1 320px;">
-          <label>
-            <input type="checkbox" id="lowPower" checked />
-            Low-power mode (recommended on phones)
-          </label>
-          <div class="small">
-            Uses smaller FFT + slower redraw + prefers a smaller Whisper model.
+        <div class="col" style="flex:1 1 360px">
+          <div class="small"><b>Mode</b></div>
+          <div class="seg" role="tablist" aria-label="Mode">
+            <input type="radio" name="mode" id="modeNormal" checked>
+            <label for="modeNormal">Normal Speech</label>
+            <input type="radio" name="mode" id="modeShift">
+            <label for="modeShift">Spectral / Hz Shift</label>
           </div>
+          <div class="small">Normal = raw mic → AI. Shift = heterodyne-shifted mic → AI (experimental).</div>
         </div>
 
-        <div class="col" style="flex: 1 1 240px;">
-          <label>AI model</label>
+        <div class="col" style="flex:1 1 320px">
+          <div class="small"><b>Voice</b></div>
+          <label class="toggle" title="Toggle audible voice">
+            <input id="voiceOn" type="checkbox" checked />
+            <span class="track"><span class="thumb"></span></span>
+            <span class="label">Speak detected words</span>
+          </label>
+          <div class="small">If off, words still appear in the output box.</div>
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:10px">
+        <div class="col" style="flex:1 1 340px">
+          <div class="small"><b>Shift amount</b> (Hz): <span id="shiftHzLabel">12000</span></div>
+          <input id="shiftHz" type="range" min="1000" max="20000" value="12000" />
+          <div class="small">Used only in Spectral/Hz Shift mode.</div>
+        </div>
+
+        <div class="col" style="flex:1 1 340px">
+          <div class="small"><b>Window</b> seconds (transcribe): <span id="winSecLabel">3.0</span></div>
+          <input id="winSec" type="range" min="1" max="8" step="0.5" value="3.0" />
+          <div class="small">How much recent audio is sent to the model each update.</div>
+        </div>
+
+        <div class="col" style="flex:1 1 340px">
+          <div class="small"><b>Update</b> every seconds: <span id="updSecLabel">1.0</span></div>
+          <input id="updSec" type="range" min="0.5" max="3" step="0.5" value="1.0" />
+          <div class="small">How often the model runs (lower = more live, higher CPU).</div>
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:10px">
+        <div class="col" style="flex:1 1 360px">
+          <div class="small"><b>AI model</b></div>
           <select id="modelSel">
             <option value="Xenova/whisper-tiny.en">whisper-tiny.en (fastest, English)</option>
             <option value="Xenova/whisper-tiny">whisper-tiny (fast, multilingual)</option>
             <option value="Xenova/whisper-base.en">whisper-base.en (better, slower)</option>
           </select>
-          <div class="small">Runs locally in your browser (no paid API).</div>
+          <div class="small">Runs locally in your browser.</div>
         </div>
-      </div>
 
-      <hr />
-
-      <div class="row">
-        <div class="col" style="flex: 1 1 320px;">
-          <label>
-            <input type="checkbox" id="shiftOn" />
-            Enable frequency shift (heterodyne / “bat detector”)
+        <div class="col" style="flex:1 1 360px">
+          <div class="small"><b>Deduplicate</b></div>
+          <label class="toggle" title="Avoid repeating identical lines every update">
+            <input id="dedupeOn" type="checkbox" checked />
+            <span class="track"><span class="thumb"></span></span>
+            <span class="label">Skip exact repeats</span>
           </label>
-          <div class="small">Shifts higher-frequency energy down into audible range.</div>
+          <div class="small">Keeps the output box from spamming the same phrase.</div>
         </div>
-
-        <div class="col" style="flex: 1 1 280px;">
-          <label>
-            <input type="checkbox" id="transcribeShifted" />
-            Transcribe shifted audio (experimental)
-          </label>
-          <div class="small">May reduce normal speech accuracy.</div>
-        </div>
-      </div>
-
-      <div class="row">
-        <div class="col" style="flex: 1 1 340px;">
-          <label>Shift amount (Hz): <span class="mono" id="shiftHzLabel">12000</span></label>
-          <input id="shiftHz" type="range" min="1000" max="20000" value="12000" />
-          <div class="small">Example: set 12000 Hz, energy near ~18 kHz shifts down near ~6 kHz.</div>
-        </div>
-
-        <div class="col" style="flex: 1 1 340px;">
-          <label>
-            <input type="checkbox" id="headphoneSafe" />
-            Headphone Safe monitoring (requires confirmation)
-          </label>
-          <label class="small">
-            <input type="checkbox" id="iHaveHeadphones" disabled />
-            I am wearing headphones (unlock monitoring volume)
-          </label>
-          <div class="small">When enabled, adds a limiter and unlocks monitor volume.</div>
-        </div>
-      </div>
-
-      <div class="row">
-        <div class="col" style="flex: 1 1 340px;">
-          <label>Monitor volume: <span class="mono" id="monVolLabel">0.00</span></label>
-          <input id="monVol" type="range" min="0" max="1" step="0.01" value="0" disabled />
-          <div class="small">Locked unless Headphone Safe + “I am wearing headphones” are enabled.</div>
-        </div>
-
-        <div class="col" style="flex: 1 1 340px;">
-          <label>Transcription chunk (seconds): <span class="mono" id="chunkSecLabel">2.5</span></label>
-          <input id="chunkSec" type="range" min="1" max="6" step="0.5" value="2.5" />
-          <div class="small">Smaller chunks update faster but can be less accurate.</div>
-        </div>
-      </div>
-
-      <hr />
-
-      <div class="row">
-        <div class="col" style="flex: 1 1 340px;">
-          <label>
-            <input type="checkbox" id="ttsOn" checked />
-            Speak recognized text out loud (SpeechSynthesis)
-          </label>
-          <div class="small">Filters out non-word noises like “(sigh)”, “(sniff)”, “(snoring)”, etc.</div>
-        </div>
-
-        <div class="col" style="flex: 1 1 340px;">
-          <label>
-            <input type="checkbox" id="anomalyOn" />
-            Anomaly detection (spectral flux) + notify
-          </label>
-          <div class="small">Flags sudden spectral changes (clicks, beeps, bursts).</div>
-        </div>
-      </div>
-
-      <div class="row">
-        <div class="col" style="flex: 1 1 520px;">
-          <label>
-            <input type="checkbox" id="scanOn" />
-            Band-scan mode (band-pass sweep) + peak list
-          </label>
-          <div class="small">Sweeps a band-pass filter and logs strongest bands (in Debug Log).</div>
-        </div>
-
-        <div class="col" style="flex: 1 1 220px;">
-          <label>Sweep speed</label>
-          <select id="scanSpeed">
-            <option value="slow">Slow</option>
-            <option value="med" selected>Medium</option>
-            <option value="fast">Fast</option>
-          </select>
-        </div>
-
-        <div class="col" style="flex: 1 1 220px;">
-          <label>Scan band (Hz)</label>
-          <select id="scanBand">
-            <option value="wide" selected>Wide</option>
-            <option value="narrow">Narrow</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="ok small" style="margin-top:10px">
-        <b>Tip:</b> The main output is now <b>words only</b>. Logs (errors/scan/anomalies) go to the Debug Log.
       </div>
     </div>
 
     <div class="card">
-      <div class="row" style="justify-content: space-between;">
+      <div class="row" style="justify-content: space-between">
         <div>
-          <div class="mono">Words Only</div>
-          <div class="small">Clean transcript output (no “(sigh)”, “(sniff)”, “(snoring)”, etc.).</div>
+          <div class="small"><b>OUTPUT // WORDS ONLY</b></div>
+          <div class="small">All detected words are appended here as they are recognized.</div>
         </div>
         <div class="row">
-          <button id="btnCopy" class="secondary">Copy</button>
-          <button id="btnClear" class="secondary">Clear</button>
+          <button id="btnCopy">Copy</button>
+          <button id="btnClear">Clear</button>
         </div>
       </div>
 
-      <textarea id="out" placeholder="(recognized words appear here)"></textarea>
+      <textarea id="out" placeholder="(detected words will appear here)"></textarea>
 
-      <details style="margin-top:10px">
-        <summary>Debug Log (optional)</summary>
-        <div class="small" style="margin:8px 0; opacity:.9">
-          Status messages, scan peaks, anomaly flags, and errors appear here.
-        </div>
-        <textarea id="log" class="tinyarea" placeholder="(debug log)"></textarea>
-      </details>
-
-      <div class="small warn" style="margin-top:10px">
-        <b>Reality check:</b> Most microphones cannot capture true ultrasound reliably, and human speech doesn’t
-        contain “secret words” above hearing. This tool is best for detecting high-frequency <i>noise</i>, shifting it
-        to audible range, and transcribing whatever speech is actually present.
+      <div class="small" style="margin-top:10px">
+        If you want it to feel more “instant”, lower <b>Update</b> to 0.5s and keep <b>Window</b> around 2–3s.
       </div>
     </div>
   </div>
 
   <!-- Permission / help overlay -->
-  <div id="permOverlay" class="overlay" role="dialog" aria-modal="true" aria-label="Microphone help">
+  <div id="permOverlay" class="overlay" role="dialog" aria-modal="true">
     <div class="modal">
       <h2 id="permTitle">Microphone permission needed</h2>
-      <p class="sub" id="permSubtitle">
-        Your browser must allow microphone access. This app will never auto-enable the mic — you must click Allow.
-      </p>
-
-      <div id="permErrorBox" class="warn small" style="display:none"></div>
+      <p class="sub" id="permSubtitle">Your browser must allow microphone access. You must tap Allow when prompted.</p>
+      <div id="permErrorBox" class="err" style="display:none"></div>
 
       <div class="steps">
         <div class="step">
-          <b>1) Make sure you are on a secure URL</b>
-          <div class="muted">
-            Must be <span class="codepill">https://</span> (GitHub Pages) or <span class="codepill">http://localhost</span>.
-            The mic will not work reliably on <span class="codepill">file://</span> or GitHub’s <span class="codepill">blob</span> view.
-          </div>
+          <b>1) Use HTTPS (or localhost)</b>
+          <div class="muted">Mic works on <span class="codepill">https://</span> or <span class="codepill">http://localhost</span>. Not on <span class="codepill">file://</span> or GitHub <span class="codepill">blob</span> view.</div>
         </div>
-
         <div class="step">
-          <b>2) Allow microphone for this site</b>
-          <div class="muted">
-            On Chrome/Edge: tap the <span class="codepill">🔒</span> icon → <span class="codepill">Site settings</span> →
-            <span class="codepill">Microphone</span> → <span class="codepill">Allow</span>, then refresh.
-          </div>
+          <b>2) Allow Microphone</b>
+          <div class="muted">Tap the 🔒 icon → Site settings → Microphone → Allow, then refresh.</div>
         </div>
-
         <div class="step">
-          <b>3) If you hit “Block” by accident</b>
-          <div class="muted">
-            Open site settings and change Microphone to Allow. You may need to refresh the page after changing it.
-          </div>
+          <b>3) If permission is blocked</b>
+          <div class="muted">Change it to Allow in site settings. Close other apps using the mic.</div>
         </div>
-
         <div class="step">
-          <b>4) If there is no mic on the device</b>
-          <div class="muted">
-            Plug in a headset/mic or check OS permissions. Some browsers also block mic in private browsing modes.
-          </div>
+          <b>4) Best browsers</b>
+          <div class="muted">Chrome/Edge/Firefox are best. Some private modes restrict mic use.</div>
         </div>
       </div>
 
       <div class="actions">
         <button id="btnTryAgain">Try Start Mic Again</button>
-        <button id="btnCloseOverlay" class="secondary">Close</button>
-      </div>
-
-      <div class="small" style="margin-top:10px; opacity:.88">
-        <b>Debug hint:</b> If it fails instantly with “NotAllowedError”, the mic is blocked in browser/site settings.
-        If it says “NotFoundError”, no microphone device is available.
+        <button id="btnCloseOverlay">Close</button>
       </div>
     </div>
   </div>
@@ -323,14 +315,33 @@
 
     const $ = (id) => document.getElementById(id);
 
-    // Buttons & status
+    // UI
     const btnStart = $("btnStart");
     const btnStop = $("btnStop");
     const btnLoadModel = $("btnLoadModel");
-    const btnClear = $("btnClear");
-    const btnCopy = $("btnCopy");
     const btnHelp = $("btnHelp");
+    const btnCopy = $("btnCopy");
+    const btnClear = $("btnClear");
     const statusEl = $("status");
+
+    const modeNormal = $("modeNormal");
+    const modeShift = $("modeShift");
+    const voiceOn = $("voiceOn");
+    const dedupeOn = $("dedupeOn");
+
+    const shiftHz = $("shiftHz");
+    const shiftHzLabel = $("shiftHzLabel");
+
+    const winSec = $("winSec");
+    const winSecLabel = $("winSecLabel");
+
+    const updSec = $("updSec");
+    const updSecLabel = $("updSecLabel");
+
+    const modelSel = $("modelSel");
+    const out = $("out");
+
+    const envBanner = $("envBanner");
 
     // Overlay
     const permOverlay = $("permOverlay");
@@ -339,108 +350,122 @@
     const permErrorBox = $("permErrorBox");
     const btnTryAgain = $("btnTryAgain");
     const btnCloseOverlay = $("btnCloseOverlay");
-    const envBanner = $("envBanner");
-
-    // Output areas
-    const out = $("out");
-    const log = $("log");
 
     // Visuals
     const spec = $("spec");
     const ctx2d = spec.getContext("2d");
-
-    // Readouts
     const srEl = $("sr");
     const nyEl = $("ny");
     const pkEl = $("pk");
-    const centEl = $("cent");
     const lvlEl = $("lvl");
-    const anomEl = $("anom");
 
-    // Controls
-    const lowPower = $("lowPower");
-    const modelSel = $("modelSel");
-
-    const shiftOn = $("shiftOn");
-    const transcribeShifted = $("transcribeShifted");
-    const shiftHz = $("shiftHz");
-    const shiftHzLabel = $("shiftHzLabel");
-
-    const headphoneSafe = $("headphoneSafe");
-    const iHaveHeadphones = $("iHaveHeadphones");
-    const monVol = $("monVol");
-    const monVolLabel = $("monVolLabel");
-
-    const chunkSec = $("chunkSec");
-    const chunkSecLabel = $("chunkSecLabel");
-
-    const ttsOn = $("ttsOn");
-    const anomalyOn = $("anomalyOn");
-
-    const scanOn = $("scanOn");
-    const scanSpeed = $("scanSpeed");
-    const scanBand = $("scanBand");
-
-    // ======= Audio state =======
+    // Audio state
     let audioCtx = null;
     let stream = null;
     let source = null;
 
-    // analysis
     let analyser = null;
     let freqData = null;
     let timeData = null;
 
-    // monitor chain
-    let monitorGain = null;
-    let compressor = null;
+    // Live capture node (AudioWorklet)
+    let captureNode = null;
 
-    // heterodyne
-    let shifterNode = null;
-    let phase = 0;
+    // Ring buffer
+    let rb = null;                 // Float32Array
+    let rbSize = 0;
+    let rbWrite = 0;
+    let rbFilled = 0;
 
-    // scan filter (monitor only)
-    let scanFilter = null;
-    let scanPhase = 0;
+    // Heterodyne phase (for shifted transcription)
+    let heteroPhase = 0;
 
-    // ======= Recorder / ASR state =======
-    let mediaRecorder = null;
-    let chunkTimer = null;
-
-    // Whisper
+    // ASR
     let asr = null;
     let modelLoaded = false;
     let busy = false;
 
-    // anomaly detection
-    let prevSpectrum = null;
-    let anomScore = 0;
-    let lastPeakLog = 0;
+    // Inference loop
+    let inferTimer = null;
+    let lastEmitted = "";
 
-    // ======= UX helpers =======
-    function setStatus(s) { statusEl.textContent = s; }
+    function setStatus(s){ statusEl.textContent = s; }
 
-    function nowTime() {
-      const d = new Date();
-      return d.toLocaleTimeString([], { hour12: true });
-    }
-
-    function appendTranscript(line) {
+    function appendWords(text){
       const prefix = out.value.length && !out.value.endsWith("\n") ? "\n" : "";
-      out.value += prefix + line;
+      out.value += prefix + text;
       out.scrollTop = out.scrollHeight;
     }
 
-    function appendLog(line) {
-      const prefix = log.value.length && !log.value.endsWith("\n") ? "\n" : "";
-      log.value += prefix + line;
-      log.scrollTop = log.scrollHeight;
+    function speak(text){
+      if (!voiceOn.checked) return;
+      if (!("speechSynthesis" in window)) return;
+      const u = new SpeechSynthesisUtterance(text);
+      u.rate = 1.0; u.pitch = 1.0; u.volume = 1.0;
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(u);
     }
 
-    function showOverlay({ title, subtitle, errorHtml } = {}) {
+    // Filter non-word cues
+    const NON_WORD_CUES = [
+      "sigh","sighs","sniff","sniffs","sniffling","snore","snoring",
+      "breath","breathing","inhale","exhale",
+      "cough","coughs","coughing",
+      "laugh","laughs","laughter",
+      "mumbling","grunt","groan","humming",
+      "music","applause","clapping",
+      "silence","background noise","noise",
+      "cry","crying","sob","sobbing",
+      "yawn","yawning",
+      "clears throat","clearing throat",
+      "lip smack","smacking"
+    ];
+
+    function looksLikeCue(s){
+      const t = String(s||"").trim().toLowerCase();
+      if (!t) return true;
+      const letters = (t.match(/[a-z]/g) || []).length;
+      if (letters === 0) return true;
+      if (t.startsWith("sound of ") || t.startsWith("sounds of ")) return true;
+      for (const cue of NON_WORD_CUES){
+        if (t === cue) return true;
+        if (t.includes(cue) && t.length <= cue.length + 10) return true;
+      }
+      return false;
+    }
+
+    function cleanTranscript(raw){
+      if (!raw) return "";
+      let t = String(raw);
+      t = t.replace(/[♪♫]+/g, " ");
+      t = t.replace(/\[([^\]]+)\]/g, (m, inner) => looksLikeCue(inner) ? " " : m);
+      t = t.replace(/\(([^\)]+)\)/g, (m, inner) => looksLikeCue(inner) ? " " : m);
+      if (looksLikeCue(t.trim())) return "";
+      t = t.replace(/\s+/g, " ").trim();
+      if (!/[A-Za-z]/.test(t)) return "";
+      return t;
+    }
+
+    function environmentChecks(){
+      const isSecure = window.isSecureContext || location.hostname === "localhost";
+      const isFile = location.protocol === "file:";
+      const isGithubBlob = location.hostname === "github.com" && location.pathname.includes("/blob/");
+      const msgs = [];
+      if (isFile) msgs.push("Opened as file:// — mic is usually blocked. Use GitHub Pages (https://) or localhost.");
+      if (isGithubBlob) msgs.push("github.com blob view — mic will not work. Open the github.io Pages URL.");
+      if (!isSecure) msgs.push("Not a secure context — mic requires https:// or http://localhost.");
+      if (msgs.length){
+        envBanner.classList.add("show");
+        envBanner.innerHTML = "<b>HEADS UP</b><br>" + msgs.map(m => "• " + m).join("<br>");
+      } else {
+        envBanner.classList.remove("show");
+      }
+    }
+
+    function showOverlay({title, subtitle, errorHtml} = {}){
       permTitle.textContent = title || "Microphone permission needed";
-      permSubtitle.textContent = subtitle || "Your browser must allow microphone access. This app will never auto-enable the mic — you must click Allow.";
-      if (errorHtml) {
+      permSubtitle.textContent = subtitle || "Your browser must allow microphone access. You must tap Allow when prompted.";
+      if (errorHtml){
         permErrorBox.style.display = "block";
         permErrorBox.innerHTML = errorHtml;
       } else {
@@ -450,253 +475,88 @@
       permOverlay.classList.add("show");
     }
 
-    function hideOverlay() {
+    function hideOverlay(){
       permOverlay.classList.remove("show");
       permErrorBox.style.display = "none";
       permErrorBox.textContent = "";
     }
 
-    function environmentChecks() {
-      const isSecure = window.isSecureContext || location.hostname === "localhost";
-      const isFile = location.protocol === "file:";
-      const isGithubBlob = location.hostname === "github.com" && location.pathname.includes("/blob/");
-      const isPages = location.hostname.endsWith(".github.io") || location.hostname.endsWith("github.io");
-
-      const msgs = [];
-      if (isFile) msgs.push("You're opening this as a local file (file://). Most browsers block mic access here. Use GitHub Pages (https://) or localhost.");
-      if (isGithubBlob) msgs.push("You're viewing the file on github.com (blob view). Mic will not work there. Open the GitHub Pages URL instead.");
-      if (!isSecure) msgs.push("This page is not a secure context. Mic requires https:// or http://localhost.");
-
-      if (msgs.length) {
-        envBanner.classList.add("show");
-        envBanner.innerHTML = "<b>Heads up:</b><br>" + msgs.map(m => "• " + m).join("<br>");
-      } else if (isPages) {
-        envBanner.classList.add("show");
-        envBanner.innerHTML = "<b>GitHub Pages detected:</b> Press <span class='codepill'>Start Mic</span> and allow microphone access when prompted.";
-      } else {
-        envBanner.classList.remove("show");
-      }
-    }
-
-    function micSupportChecks() {
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        showOverlay({
-          title: "Microphone not supported",
-          subtitle: "This browser doesn't support microphone capture (getUserMedia). Try Chrome/Edge/Firefox.",
-          errorHtml: "<b>Missing API:</b> navigator.mediaDevices.getUserMedia is not available."
-        });
-        return false;
-      }
-      return true;
-    }
-
-    async function queryPermissionIfPossible() {
-      try {
-        if (!navigator.permissions || !navigator.permissions.query) return null;
+    async function queryPermissionIfPossible(){
+      try{
+        if (!navigator.permissions?.query) return null;
         const p = await navigator.permissions.query({ name: "microphone" });
-        return p.state; // 'granted' | 'prompt' | 'denied'
-      } catch {
-        return null;
-      }
+        return p.state;
+      }catch{ return null; }
     }
 
-    function speak(text) {
-      if (!ttsOn.checked) return;
-      if (!("speechSynthesis" in window)) return;
-
-      const u = new SpeechSynthesisUtterance(text);
-      u.rate = 1.0;
-      u.pitch = 1.0;
-      u.volume = 1.0;
-
-      window.speechSynthesis.cancel();
-      window.speechSynthesis.speak(u);
-    }
-
-    // ======= Transcript cleaning (words-only) =======
-    const NON_WORD_CUES = [
-      "sigh", "sighs", "sniff", "sniffs", "sniffling", "snore", "snoring",
-      "breath", "breathing", "inhale", "exhale",
-      "cough", "coughs", "coughing",
-      "laugh", "laughs", "laughter",
-      "whispering", "mumbling", "grunt", "groan", "humming",
-      "music", "applause", "clapping",
-      "silence", "background noise", "noise",
-      "cry", "crying", "sob", "sobbing",
-      "yawn", "yawning",
-      "clears throat", "clearing throat",
-      "lip smack", "smacking"
-    ];
-
-    function looksLikeCue(s) {
-      const t = String(s || "").trim().toLowerCase();
-      if (!t) return true;
-
-      const letters = (t.match(/[a-z]/g) || []).length;
-      if (letters === 0) return true;
-
-      if (t.startsWith("sound of ") || t.startsWith("sounds of ")) return true;
-
-      for (const cue of NON_WORD_CUES) {
-        if (t === cue) return true;
-        if (t.includes(cue) && t.length <= cue.length + 10) return true; // e.g. "soft sigh"
-      }
-      return false;
-    }
-
-    function cleanTranscript(raw) {
-      if (!raw) return "";
-      let t = String(raw);
-
-      // Remove musical notes
-      t = t.replace(/[♪♫]+/g, " ");
-
-      // Remove bracketed/parenthesized cues: [sigh], (snoring)
-      t = t.replace(/\[([^\]]+)\]/g, (m, inner) => looksLikeCue(inner) ? " " : m);
-      t = t.replace(/\(([^\)]+)\)/g, (m, inner) => looksLikeCue(inner) ? " " : m);
-
-      // If the whole thing is basically a cue, drop it.
-      if (looksLikeCue(t.trim())) return "";
-
-      // Normalize whitespace
-      t = t.replace(/\s+/g, " ").trim();
-
-      // Must contain at least one letter
-      if (!/[A-Za-z]/.test(t)) return "";
-
-      return t;
-    }
-
-    // ======= Audio math =======
-    function dbfsFromTimeDomain(arr) {
+    function dbfsFromTimeDomain(arr){
       let sumSq = 0;
-      for (let i = 0; i < arr.length; i++) {
-        const v = (arr[i] - 128) / 128;
-        sumSq += v * v;
+      for (let i=0;i<arr.length;i++){
+        const v = (arr[i]-128)/128;
+        sumSq += v*v;
       }
-      const rms = Math.sqrt(sumSq / arr.length);
+      const rms = Math.sqrt(sumSq/arr.length);
       if (rms <= 1e-9) return "-inf";
-      return (20 * Math.log10(rms)).toFixed(1);
+      return (20*Math.log10(rms)).toFixed(1);
     }
 
-    function spectralCentroid(freqBytes, nyquist) {
-      let num = 0, den = 0;
-      const n = freqBytes.length;
-      for (let i = 0; i < n; i++) {
-        const mag = freqBytes[i] / 255;
-        const hz = (i / n) * nyquist;
-        num += hz * mag;
-        den += mag;
-      }
-      return den > 0 ? (num / den) : 0;
-    }
-
-    function findPeakHz(freqBytes, nyquist) {
+    function findPeakHz(freqBytes, nyquist){
       let peakIdx = 0;
-      for (let i = 1; i < freqBytes.length; i++) {
+      for (let i=1;i<freqBytes.length;i++){
         if (freqBytes[i] > freqBytes[peakIdx]) peakIdx = i;
       }
       const hz = (peakIdx / freqBytes.length) * nyquist;
       return { peakIdx, hz };
     }
 
-    function applyHeterodyneToPCM(pcm, sampleRate, shiftHzVal) {
+    function applyHeterodyneToPCM(pcm, sampleRate, shiftHzVal){
       const outArr = new Float32Array(pcm.length);
       const twoPi = 2 * Math.PI;
-      let ph = 0;
+      let ph = heteroPhase;
       const inc = twoPi * shiftHzVal / sampleRate;
-      for (let i = 0; i < pcm.length; i++) {
+      for (let i=0;i<pcm.length;i++){
         outArr[i] = pcm[i] * Math.cos(ph);
         ph += inc;
         if (ph > 1e9) ph = ph % twoPi;
       }
+      heteroPhase = ph;
       return outArr;
     }
 
-    function buildShifter(inputNode) {
-      const bufferSize = lowPower.checked ? 2048 : 1024;
-      const sp = audioCtx.createScriptProcessor(bufferSize, 1, 1);
-
-      sp.onaudioprocess = (e) => {
-        const input = e.inputBuffer.getChannelData(0);
-        const output = e.outputBuffer.getChannelData(0);
-        const fShift = Number(shiftHz.value);
-        const sr = audioCtx.sampleRate;
-        const twoPi = 2 * Math.PI;
-
-        for (let i = 0; i < input.length; i++) {
-          output[i] = input[i] * Math.cos(phase);
-          phase += twoPi * fShift / sr;
-          if (phase > 1e9) phase = phase % twoPi;
-        }
-      };
-
-      inputNode.connect(sp);
-      return sp;
+    // Ring buffer helpers
+    function rbInit(sampleRate){
+      // keep last 12 seconds
+      rbSize = Math.max(1, Math.floor(sampleRate * 12));
+      rb = new Float32Array(rbSize);
+      rbWrite = 0;
+      rbFilled = 0;
     }
 
-    function setupMonitorChain() {
-      try { if (monitorGain) monitorGain.disconnect(); } catch {}
-      try { if (compressor) compressor.disconnect(); } catch {}
-      try { if (scanFilter) scanFilter.disconnect(); } catch {}
-      try { if (shifterNode) shifterNode.disconnect(); } catch {}
-
-      monitorGain = audioCtx.createGain();
-      monitorGain.gain.value = Number(monVol.value);
-
-      compressor = audioCtx.createDynamicsCompressor();
-      compressor.threshold.value = -24;
-      compressor.knee.value = 20;
-      compressor.ratio.value = 12;
-      compressor.attack.value = 0.003;
-      compressor.release.value = 0.25;
-
-      scanFilter = audioCtx.createBiquadFilter();
-      scanFilter.type = "bandpass";
-      scanFilter.frequency.value = 2000;
-      scanFilter.Q.value = (scanBand.value === "narrow") ? 18 : 6;
-
-      let node = source;
-
-      if (shiftOn.checked) {
-        shifterNode = buildShifter(node);
-        node = shifterNode;
+    function rbPush(block){
+      // block is Float32Array
+      const n = block.length;
+      for (let i=0;i<n;i++){
+        rb[rbWrite] = block[i];
+        rbWrite = (rbWrite + 1) % rbSize;
       }
+      rbFilled = Math.min(rbSize, rbFilled + n);
+    }
 
-      if (scanOn.checked) {
-        node.connect(scanFilter);
-        node = scanFilter;
-      }
-
-      if (headphoneSafe.checked) {
-        node.connect(compressor);
-        compressor.connect(monitorGain);
+    function rbGetLast(seconds, sampleRate){
+      const need = Math.min(rbFilled, Math.floor(seconds * sampleRate));
+      const outArr = new Float32Array(need);
+      const start = (rbWrite - need + rbSize) % rbSize;
+      if (start + need <= rbSize){
+        outArr.set(rb.subarray(start, start + need));
       } else {
-        node.connect(monitorGain);
+        const firstLen = rbSize - start;
+        outArr.set(rb.subarray(start), 0);
+        outArr.set(rb.subarray(0, need - firstLen), firstLen);
       }
-
-      monitorGain.connect(audioCtx.destination);
+      return outArr;
     }
 
-    function enforceHeadphoneSafetyUI() {
-      if (headphoneSafe.checked) iHaveHeadphones.disabled = false;
-      else {
-        iHaveHeadphones.checked = false;
-        iHaveHeadphones.disabled = true;
-      }
-
-      const unlocked = headphoneSafe.checked && iHaveHeadphones.checked;
-      monVol.disabled = !unlocked;
-
-      if (!unlocked) {
-        monVol.value = "0";
-        monVolLabel.textContent = "0.00";
-        if (monitorGain) monitorGain.gain.value = 0;
-      }
-    }
-
-    // ======= AI model =======
-    async function loadModel() {
+    async function loadModel(){
       if (modelLoaded) return;
       btnLoadModel.disabled = true;
 
@@ -705,351 +565,67 @@
 
       const modelId = modelSel.value;
       setStatus("loading model…");
-      appendLog(`[${nowTime()}] Loading model: ${modelId}`);
 
       const device = (navigator.gpu ? "webgpu" : "wasm");
-      appendLog(`[${nowTime()}] Backend: ${device}`);
-
       asr = await pipeline("automatic-speech-recognition", modelId, { device });
+
       modelLoaded = true;
       setStatus("model loaded");
-      appendLog(`[${nowTime()}] Model loaded.`);
     }
 
-    // ======= Recording / transcription loop =======
-    function startChunkedTranscription() {
-      if (!stream) return;
-
-      const seconds = Number(chunkSec.value);
-      const mime = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-        ? "audio/webm;codecs=opus"
-        : "audio/webm";
-
-      if (chunkTimer) { clearInterval(chunkTimer); chunkTimer = null; }
-      if (mediaRecorder && mediaRecorder.state !== "inactive") mediaRecorder.stop();
-      mediaRecorder = null;
-
-      mediaRecorder = new MediaRecorder(stream, { mimeType: mime });
-      const chunks = [];
-
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data && e.data.size > 0) chunks.append ? chunks.append(e.data) : chunks.push(e.data);
-      };
-
-      mediaRecorder.onstop = async () => {
-        if (!chunks.length) return;
-        const blob = new Blob(chunks.splice(0, chunks.length), { type: mime });
-        await transcribeBlob(blob);
-      };
-
-      const cycle = () => {
-        if (!mediaRecorder) return;
-        if (mediaRecorder.state === "recording") return;
-
-        mediaRecorder.start();
-        setTimeout(() => {
-          if (mediaRecorder && mediaRecorder.state === "recording") mediaRecorder.stop();
-        }, Math.max(600, seconds * 1000));
-      };
-
-      cycle();
-      chunkTimer = setInterval(cycle, Math.max(700, seconds * 1000 + 200));
-    }
-
-    async function transcribeBlob(blob) {
-      if (!modelLoaded || !asr) return;
-      if (busy) return;
-
-      busy = true;
-      setStatus("transcribing…");
-
-      try {
-        const arrayBuffer = await blob.arrayBuffer();
-        const tmpCtx = new (window.AudioContext || window.webkitAudioContext)();
-        const audioBuf = await tmpCtx.decodeAudioData(arrayBuffer);
-        const pcm = audioBuf.getChannelData(0);
-        const sr = audioBuf.sampleRate;
-
-        let pcmToUse = pcm;
-        if (shiftOn.checked && transcribeShifted.checked) {
-          pcmToUse = applyHeterodyneToPCM(pcm, sr, Number(shiftHz.value));
+    async function ensureCaptureWorklet(){
+      // Single-file worklet via Blob URL
+      const code = `
+        class CaptureProcessor extends AudioWorkletProcessor {
+          process(inputs, outputs, parameters) {
+            const input = inputs[0];
+            if (input && input[0]) {
+              // Copy so it's transferable-like (structured clone)
+              const ch0 = input[0];
+              this.port.postMessage(ch0.slice(0));
+            }
+            return true;
+          }
         }
-
-        await tmpCtx.close();
-
-        const result = await asr(pcmToUse, {
-          chunk_length_s: Number(chunkSec.value),
-          stride_length_s: 0.2,
-          return_timestamps: false
-        });
-
-        const rawText = (result?.text || "").trim();
-        const cleaned = cleanTranscript(rawText);
-
-        if (cleaned) {
-          appendTranscript(cleaned);
-          speak(cleaned);
-        }
-      } catch (err) {
-        console.error(err);
-        appendLog(`[${nowTime()}] [error] ${err?.message || String(err)}`);
+        registerProcessor('capture-processor', CaptureProcessor);
+      `;
+      const url = URL.createObjectURL(new Blob([code], { type: "application/javascript" }));
+      try{
+        await audioCtx.audioWorklet.addModule(url);
       } finally {
-        busy = false;
-        setStatus("listening");
+        URL.revokeObjectURL(url);
       }
     }
 
-    // ======= Stop =======
-    function stopAll() {
-      if (chunkTimer) { clearInterval(chunkTimer); chunkTimer = null; }
-      if (mediaRecorder && mediaRecorder.state !== "inactive") mediaRecorder.stop();
-      mediaRecorder = null;
-
-      try { if (shifterNode) shifterNode.disconnect(); } catch {}
-      shifterNode = null;
-
-      try { if (scanFilter) scanFilter.disconnect(); } catch {}
-      scanFilter = null;
-
-      try { if (source) source.disconnect(); } catch {}
-      source = null;
-
-      try { if (analyser) analyser.disconnect(); } catch {}
-      analyser = null;
-
-      try { if (monitorGain) monitorGain.disconnect(); } catch {}
-      monitorGain = null;
-
-      try { if (compressor) compressor.disconnect(); } catch {}
-      compressor = null;
-
-      if (stream) {
-        for (const track of stream.getTracks()) track.stop();
-        stream = null;
-      }
-
-      if (audioCtx) {
-        audioCtx.close();
-        audioCtx = null;
-      }
-
-      btnStart.disabled = false;
-      btnStop.disabled = true;
-      setStatus("stopped");
-      appendLog(`[${nowTime()}] Stopped.`);
-    }
-
-    // ======= Scan/anomaly =======
-    function updateScanFilter() {
-      if (!scanFilter || !audioCtx) return;
-
-      const nyquist = audioCtx.sampleRate / 2;
-      const minHz = 60;
-      const maxHz = Math.max(500, Math.min(nyquist - 200, 20000));
-
-      const speed = scanSpeed.value;
-      const step =
-        speed === "slow" ? 0.002 :
-        speed === "fast" ? 0.010 :
-        0.005;
-
-      scanPhase += step;
-      if (scanPhase > 1) scanPhase -= 1;
-
-      const logMin = Math.log(minHz);
-      const logMax = Math.log(maxHz);
-      const f = Math.exp(logMin + (logMax - logMin) * scanPhase);
-
-      scanFilter.frequency.value = f;
-      scanFilter.Q.value = (scanBand.value === "narrow") ? 18 : 6;
-    }
-
-    function logTopPeaks(freqBytes, nyquist) {
-      const t = performance.now();
-      if (t - lastPeakLog < 1200) return;
-      lastPeakLog = t;
-
-      const n = freqBytes.length;
-      const peaks = [];
-      for (let i = 2; i < n - 2; i++) {
-        const a = freqBytes[i - 1], b = freqBytes[i], c = freqBytes[i + 1];
-        if (b > a && b > c && b > 140) {
-          const hz = (i / n) * nyquist;
-          peaks.push({ hz, mag: b });
-        }
-      }
-      peaks.sort((p, q) => q.mag - p.mag);
-      const top = peaks.slice(0, 5);
-      if (!top.length) return;
-
-      const list = top.map(p => `${p.hz.toFixed(0)}Hz`).join(", ");
-      appendLog(`[${nowTime()}] [scan peaks] ${list}`);
-    }
-
-    function anomalyDetect(freqBytes) {
-      if (!prevSpectrum) return 0;
-      let flux = 0;
-      for (let i = 0; i < freqBytes.length; i++) {
-        const v = freqBytes[i] / 255;
-        const d = v - prevSpectrum[i];
-        if (d > 0) flux += d;
-        prevSpectrum[i] = v;
-      }
-      return flux;
-    }
-
-    // ======= Draw loop =======
-    function drawLoop() {
-      if (!analyser || !audioCtx) return;
-
-      if (scanOn.checked) updateScanFilter();
-
-      analyser.getByteFrequencyData(freqData);
-      analyser.getByteTimeDomainData(timeData);
-
-      const nyquist = audioCtx.sampleRate / 2;
-
-      const { peakIdx, hz: peakHz } = findPeakHz(freqData, nyquist);
-      const centroid = spectralCentroid(freqData, nyquist);
-      const db = dbfsFromTimeDomain(timeData);
-
-      pkEl.textContent = peakHz.toFixed(0);
-      centEl.textContent = centroid.toFixed(0);
-      lvlEl.textContent = db;
-
-      if (anomalyOn.checked) {
-        const flux = anomalyDetect(freqData);
-        anomScore = 0.85 * anomScore + 0.15 * flux;
-        anomEl.textContent = anomScore.toFixed(2);
-
-        if (anomScore > (lowPower.checked ? 2.2 : 2.0)) {
-          appendLog(`[${nowTime()}] [anomaly] spectral change detected (score=${anomScore.toFixed(2)})`);
-          anomScore = 0.6 * anomScore;
-        }
-      } else {
-        anomEl.textContent = "off";
-      }
-
-      if (scanOn.checked) logTopPeaks(freqData, nyquist);
-
-      // Draw spectrum
-      ctx2d.clearRect(0, 0, spec.width, spec.height);
-      const w = spec.width, h = spec.height;
-      const n = freqData.length;
-      const barW = w / n;
-
-      for (let i = 0; i < n; i++) {
-        const v = freqData[i] / 255;
-        const barH = v * (h - 20);
-        ctx2d.fillStyle = `rgba(125, 177, 255, ${0.10 + v * 0.85})`;
-        ctx2d.fillRect(i * barW, h - barH, barW, barH);
-      }
-
-      // Peak marker
-      const x = peakIdx * barW;
-      ctx2d.fillStyle = "rgba(255,255,255,0.9)";
-      ctx2d.fillRect(x, 0, 2, h);
-
-      // Scan marker (center frequency)
-      if (scanOn.checked && scanFilter) {
-        const fx = (scanFilter.frequency.value / nyquist) * w;
-        ctx2d.fillStyle = "rgba(255, 230, 160, 0.9)";
-        ctx2d.fillRect(fx, 0, 2, h);
-      }
-
-      const delay = lowPower.checked ? 60 : 0;
-      if (delay) setTimeout(() => requestAnimationFrame(drawLoop), delay);
-      else requestAnimationFrame(drawLoop);
-    }
-
-    function reconnectAudioGraphIfRunning() {
-      if (!audioCtx || !source) return;
-
-      if (analyser) {
-        analyser.fftSize = lowPower.checked ? 1024 : 2048;
-        freqData = new Uint8Array(analyser.frequencyBinCount);
-        timeData = new Uint8Array(analyser.fftSize);
-        prevSpectrum = new Float32Array(analyser.frequencyBinCount);
-      }
-
-      setupMonitorChain();
-      enforceHeadphoneSafetyUI();
-    }
-
-    // ======= Mic start with better UX =======
-    function formatMicError(e, permState) {
-      const name = e?.name || "Error";
-      const msg = e?.message || String(e);
-
-      let title = "Microphone error";
-      let subtitle = "Your browser blocked or could not access the microphone.";
-      let html = `<b>${name}:</b> ${msg}<br><br>`;
-
-      if (name === "NotAllowedError" || name === "SecurityError") {
-        title = "Microphone blocked";
-        subtitle = "The site is not allowed to use your microphone (permission denied).";
-        html += "• Open the 🔒 site settings and set <b>Microphone</b> to <b>Allow</b>.<br>";
-        html += "• If you previously tapped <b>Block</b>, change it in site settings and refresh.<br>";
-        if (permState) html += `• Permission state: <span class="codepill">${permState}</span><br>`;
-      } else if (name === "NotFoundError" || name === "DevicesNotFoundError") {
-        title = "No microphone found";
-        subtitle = "No audio input device is available.";
-        html += "• Plug in a headset mic or ensure your device mic is available.<br>";
-      } else if (name === "NotReadableError" || name === "TrackStartError") {
-        title = "Microphone busy";
-        subtitle = "Another app might be using the microphone.";
-        html += "• Close other apps/tabs that might be using the mic (calls, recorders, voice chat).<br>";
-        html += "• Then try again.<br>";
-      } else {
-        html += "• Try Chrome/Edge on Android or desktop.<br>";
-      }
-
-      return { title, subtitle, html };
-    }
-
-    async function startMic() {
-      if (!micSupportChecks()) return;
-
-      if (!window.isSecureContext && location.hostname !== "localhost") {
-        showOverlay({
-          title: "Mic needs HTTPS (or localhost)",
-          subtitle: "Browsers require a secure origin for microphone access.",
-          errorHtml: "You're on an insecure page. Use <b>https://</b> (GitHub Pages) or <b>http://localhost</b>."
-        });
+    async function startMic(){
+      if (!navigator.mediaDevices?.getUserMedia){
+        showOverlay({ title: "Mic not supported", subtitle: "This browser does not support getUserMedia(). Try Chrome/Edge/Firefox." });
         return;
       }
-      if (location.hostname === "github.com" && location.pathname.includes("/blob/")) {
-        showOverlay({
-          title: "Open the GitHub Pages URL",
-          subtitle: "The GitHub file viewer cannot request mic permission.",
-          errorHtml: "You're on <b>github.com</b> blob view. Open your <b>https://username.github.io/repo/</b> page instead."
-        });
+      if (!window.isSecureContext && location.hostname !== "localhost"){
+        showOverlay({ title: "Mic needs HTTPS", subtitle: "Browsers require a secure origin for mic access.", errorHtml: "Use <b>https://</b> (GitHub Pages) or <b>http://localhost</b>." });
         return;
       }
-
+      if (location.hostname === "github.com" && location.pathname.includes("/blob/")){
+        showOverlay({ title: "Open GitHub Pages", subtitle: "Mic won't work on github.com blob view.", errorHtml: "Open your <b>https://username.github.io/repo/</b> URL instead." });
+        return;
+      }
       if (audioCtx) return;
 
       const permState = await queryPermissionIfPossible();
-      if (permState === "denied") {
-        showOverlay({
-          title: "Microphone is blocked",
-          subtitle: "Your browser/site settings are set to Block.",
-          errorHtml: "Permission state is <b>denied</b>. Tap the 🔒 icon → Site settings → Microphone → <b>Allow</b>, then refresh."
-        });
+      if (permState === "denied"){
+        showOverlay({ title: "Microphone blocked", subtitle: "Site permission is set to Block.", errorHtml: "Tap 🔒 → Site settings → Microphone → <b>Allow</b>, then refresh." });
         return;
       }
 
       setStatus("requesting mic…");
-
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
-        });
-      } catch (e) {
-        const info = formatMicError(e, permState);
+      try{
+        stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation:false, noiseSuppression:false, autoGainControl:false } });
+      }catch(e){
+        const name = e?.name || "Error";
+        const msg = e?.message || String(e);
+        showOverlay({ title: "Microphone error", subtitle: "Browser could not access the microphone.", errorHtml: `<b>${name}</b>: ${msg}` });
         setStatus("mic error");
-        showOverlay({ title: info.title, subtitle: info.subtitle, errorHtml: info.html });
-        appendLog(`[${nowTime()}] [mic error] ${info.title} — ${e?.name || e}`);
         return;
       }
 
@@ -1057,49 +633,186 @@
 
       audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       srEl.textContent = audioCtx.sampleRate.toFixed(0);
-      nyEl.textContent = (audioCtx.sampleRate / 2).toFixed(0);
+      nyEl.textContent = (audioCtx.sampleRate/2).toFixed(0);
+
+      rbInit(audioCtx.sampleRate);
+      heteroPhase = 0;
 
       source = audioCtx.createMediaStreamSource(stream);
 
       analyser = audioCtx.createAnalyser();
-      analyser.fftSize = lowPower.checked ? 1024 : 2048;
+      analyser.fftSize = 1024;
       analyser.smoothingTimeConstant = 0.6;
-
       freqData = new Uint8Array(analyser.frequencyBinCount);
       timeData = new Uint8Array(analyser.fftSize);
-      prevSpectrum = new Float32Array(analyser.frequencyBinCount);
 
       source.connect(analyser);
 
-      setupMonitorChain();
-      enforceHeadphoneSafetyUI();
+      // Live capture node
+      if (audioCtx.audioWorklet){
+        await ensureCaptureWorklet();
+        captureNode = new AudioWorkletNode(audioCtx, "capture-processor", { numberOfInputs: 1, numberOfOutputs: 0, channelCount: 1 });
+        captureNode.port.onmessage = (ev) => {
+          const block = ev.data;
+          if (block && block.length) rbPush(block);
+        };
+        source.connect(captureNode);
+      } else {
+        // Fallback: ScriptProcessorNode (older)
+        const sp = audioCtx.createScriptProcessor(2048, 1, 1);
+        sp.onaudioprocess = (e) => {
+          const input = e.inputBuffer.getChannelData(0);
+          rbPush(input);
+        };
+        source.connect(sp);
+        // connect to destination silently to keep node running
+        const zero = audioCtx.createGain(); zero.gain.value = 0;
+        sp.connect(zero); zero.connect(audioCtx.destination);
+        captureNode = sp;
+      }
 
-      startChunkedTranscription();
+      startInferenceLoop();
 
       btnStart.disabled = true;
       btnStop.disabled = false;
-
       setStatus("listening");
-      appendLog(`[${nowTime()}] Mic started. sampleRate=${audioCtx.sampleRate}Hz`);
       requestAnimationFrame(drawLoop);
     }
 
-    // ======= Events =======
-    btnStart.addEventListener("click", startMic);
+    function stopAll(){
+      stopInferenceLoop();
 
-    btnStop.addEventListener("click", () => {
-      appendLog(`[${nowTime()}] Stopping…`);
-      stopAll();
-    });
+      try{ captureNode?.disconnect(); }catch{}
+      captureNode = null;
+
+      try{ source?.disconnect(); }catch{}
+      source = null;
+      analyser = null;
+
+      if (stream){
+        for (const t of stream.getTracks()) t.stop();
+        stream = null;
+      }
+      if (audioCtx){
+        audioCtx.close();
+        audioCtx = null;
+      }
+
+      rb = null; rbSize = 0; rbWrite = 0; rbFilled = 0;
+      btnStart.disabled = false;
+      btnStop.disabled = true;
+      setStatus("stopped");
+    }
+
+    function stopInferenceLoop(){
+      if (inferTimer){ clearInterval(inferTimer); inferTimer = null; }
+      busy = false;
+    }
+
+    function startInferenceLoop(){
+      stopInferenceLoop();
+      const intervalMs = Math.max(250, Number(updSec.value) * 1000);
+      inferTimer = setInterval(runInferenceTick, intervalMs);
+    }
+
+    async function runInferenceTick(){
+      if (!audioCtx || !rb || !modelLoaded || !asr) return;
+      if (busy) return;
+
+      const sr = audioCtx.sampleRate;
+      const windowSec = Number(winSec.value);
+
+      // need at least ~0.5s of audio
+      if (rbFilled < Math.floor(sr * 0.5)) return;
+
+      busy = true;
+      setStatus("transcribing…");
+
+      try{
+        let pcm = rbGetLast(windowSec, sr);
+
+        // Mode: shift or normal
+        if (modeShift.checked){
+          pcm = applyHeterodyneToPCM(pcm, sr, Number(shiftHz.value));
+        }
+
+        const result = await asr(pcm, {
+          chunk_length_s: windowSec,
+          stride_length_s: 0.2,
+          return_timestamps: false
+        });
+
+        const rawText = (result?.text || "").trim();
+        const cleaned = cleanTranscript(rawText);
+
+        if (cleaned){
+          if (dedupeOn.checked){
+            if (cleaned === lastEmitted) {
+              // skip exact repeat
+            } else {
+              lastEmitted = cleaned;
+              appendWords(cleaned);
+              speak(cleaned);
+            }
+          } else {
+            lastEmitted = cleaned;
+            appendWords(cleaned);
+            speak(cleaned);
+          }
+        }
+      } catch (err){
+        console.error(err);
+        showOverlay({ title: "Transcription error", subtitle: "Something went wrong while transcribing.", errorHtml: String(err?.message || err) });
+      } finally {
+        busy = false;
+        setStatus("listening");
+      }
+    }
+
+    function drawLoop(){
+      if (!analyser || !audioCtx) return;
+
+      analyser.getByteFrequencyData(freqData);
+      analyser.getByteTimeDomainData(timeData);
+
+      const nyquist = audioCtx.sampleRate / 2;
+      const { peakIdx, hz: peakHz } = findPeakHz(freqData, nyquist);
+      pkEl.textContent = peakHz.toFixed(0);
+      lvlEl.textContent = dbfsFromTimeDomain(timeData);
+
+      // draw bars
+      ctx2d.clearRect(0,0,spec.width,spec.height);
+      const w = spec.width, h = spec.height;
+      const n = freqData.length;
+      const barW = w / n;
+
+      for (let i=0;i<n;i++){
+        const v = freqData[i]/255;
+        const barH = v*(h-20);
+        const a = 0.10 + v*0.85;
+        ctx2d.fillStyle = `rgba(53,255,106,${a})`;
+        ctx2d.fillRect(i*barW, h-barH, barW, barH);
+      }
+
+      // peak marker
+      const x = peakIdx * barW;
+      ctx2d.fillStyle = "rgba(255,255,255,0.75)";
+      ctx2d.fillRect(x, 0, 2, h);
+
+      requestAnimationFrame(drawLoop);
+    }
+
+    // Events
+    btnStart.addEventListener("click", startMic);
+    btnStop.addEventListener("click", stopAll);
 
     btnLoadModel.addEventListener("click", async () => {
-      try {
-        await loadModel();
-      } catch (e) {
+      try{ await loadModel(); }
+      catch(e){
         console.error(e);
-        alert("Model load failed: " + (e?.message || e));
-        setStatus("model load error");
+        showOverlay({ title: "Model load failed", subtitle: "Could not load the AI model.", errorHtml: String(e?.message || e) });
         btnLoadModel.disabled = false;
+        setStatus("model load error");
       }
     });
 
@@ -1107,84 +820,48 @@
       const permState = await queryPermissionIfPossible();
       showOverlay({
         title: "Microphone help",
-        subtitle: "Follow these steps to enable the mic.",
-        errorHtml: permState ? `Permissions API reports: <span class="codepill">${permState}</span>` : null
+        subtitle: "Follow the steps to enable mic access.",
+        errorHtml: permState ? `Permissions API: <b>${permState}</b>` : ""
       });
     });
 
-    btnTryAgain.addEventListener("click", async () => {
-      hideOverlay();
-      await startMic();
-    });
-
+    btnTryAgain.addEventListener("click", async () => { hideOverlay(); await startMic(); });
     btnCloseOverlay.addEventListener("click", hideOverlay);
 
-    btnClear.addEventListener("click", () => { out.value = ""; });
+    btnClear.addEventListener("click", () => { out.value = ""; lastEmitted = ""; });
 
     btnCopy.addEventListener("click", async () => {
-      try {
-        await navigator.clipboard.writeText(out.value || "");
-        appendLog(`[${nowTime()}] (copied transcript to clipboard)`);
-      } catch {
-        alert("Copy failed (clipboard permissions). You can manually select/copy.");
-      }
+      try{ await navigator.clipboard.writeText(out.value || ""); }
+      catch{ showOverlay({ title: "Copy failed", subtitle: "Clipboard permissions blocked.", errorHtml: "Manually select and copy the text." }); }
     });
 
+    // Controls
     shiftHz.addEventListener("input", () => { shiftHzLabel.textContent = shiftHz.value; });
-
-    chunkSec.addEventListener("input", () => {
-      chunkSecLabel.textContent = chunkSec.value;
-      if (stream) startChunkedTranscription();
+    winSec.addEventListener("input", () => { winSecLabel.textContent = Number(winSec.value).toFixed(1); });
+    updSec.addEventListener("input", () => {
+      updSecLabel.textContent = Number(updSec.value).toFixed(1);
+      if (audioCtx) startInferenceLoop();
     });
 
-    lowPower.addEventListener("change", () => reconnectAudioGraphIfRunning());
-
-    shiftOn.addEventListener("change", () => { if (audioCtx) reconnectAudioGraphIfRunning(); });
-    scanOn.addEventListener("change", () => { if (audioCtx) reconnectAudioGraphIfRunning(); });
-
-    scanBand.addEventListener("change", () => {
-      if (scanFilter) scanFilter.Q.value = (scanBand.value === "narrow") ? 18 : 6;
-    });
-
-    headphoneSafe.addEventListener("change", () => {
-      enforceHeadphoneSafetyUI();
-      if (audioCtx) reconnectAudioGraphIfRunning();
-    });
-
-    iHaveHeadphones.addEventListener("change", () => {
-      enforceHeadphoneSafetyUI();
-      if (audioCtx) reconnectAudioGraphIfRunning();
-    });
-
-    monVol.addEventListener("input", () => {
-      monVolLabel.textContent = Number(monVol.value).toFixed(2);
-      if (monitorGain) monitorGain.gain.value = Number(monVol.value);
-    });
+    function onModeChange(){
+      // reset duplicate tracking when mode changes
+      lastEmitted = "";
+    }
+    modeNormal.addEventListener("change", onModeChange);
+    modeShift.addEventListener("change", onModeChange);
 
     modelSel.addEventListener("change", () => {
-      if (modelLoaded) appendLog(`[${nowTime()}] Model already loaded. Reload the page to load a different model.`);
+      if (modelLoaded) {
+        showOverlay({ title: "Model already loaded", subtitle: "Reload the page to switch models.", errorHtml: "Whisper model can’t be swapped mid-session in this one-file build." });
+      }
     });
 
-    // Init labels and checks
+    // Init labels
     shiftHzLabel.textContent = shiftHz.value;
-    chunkSecLabel.textContent = chunkSec.value;
-    monVolLabel.textContent = Number(monVol.value).toFixed(2);
-    enforceHeadphoneSafetyUI();
+    winSecLabel.textContent = Number(winSec.value).toFixed(1);
+    updSecLabel.textContent = Number(updSec.value).toFixed(1);
     environmentChecks();
-
-    (async () => {
-      const permState = await queryPermissionIfPossible();
-      if (permState === "denied") {
-        showOverlay({
-          title: "Microphone is blocked",
-          subtitle: "Your browser/site settings are set to Block.",
-          errorHtml: "Tap the 🔒 icon → Site settings → Microphone → <b>Allow</b>, then refresh."
-        });
-      }
-    })();
-
     setStatus("idle (Start Mic, then Load AI Model)");
-    appendLog(`[${nowTime()}] Ready. Transcript output is words-only; noises are filtered.`);
   </script>
 </body>
 </html>
