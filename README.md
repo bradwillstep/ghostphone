@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Ultra Listener — Android Live Translate + Monitor</title>
+  <title>Ultra Listener — Android Live Translate (Worker Stable)</title>
   <style>
     :root{
       color-scheme: dark;
@@ -151,7 +151,7 @@
   </style>
 </head>
 <body>
-  <h1>ULTRA LISTENER // LIVE VOICE + TRANSLATE + MONITOR</h1>
+  <h1>ULTRA LISTENER // WORKER STABLE LIVE TRANSLATE</h1>
 
   <div class="grid">
     <div class="card">
@@ -162,17 +162,16 @@
             <option value="Xenova/whisper-tiny" selected>whisper-tiny (multilingual) — recommended</option>
             <option value="Xenova/whisper-tiny.en">whisper-tiny.en (English-only)</option>
           </select>
-          <div class="small">For continuous translate, use multilingual model.</div>
+          <div class="small">This build runs ASR in a Worker to prevent UI stutter.</div>
         </div>
 
         <div class="col" style="flex: 1 1 320px">
           <div class="small"><b>TRANSLATE</b></div>
-          <label class="toggle" title="Translate speech to English while transcribing">
+          <label class="toggle">
             <input id="translateOn" type="checkbox" checked />
             <span class="track"><span class="thumb"></span></span>
             <span class="label">Translate to English</span>
           </label>
-          <div class="small">Runs locally; more CPU than plain transcription.</div>
         </div>
       </div>
 
@@ -189,32 +188,34 @@
         <span class="kv"><span id="dotMic" class="dot"></span><span class="key">MIC</span><span id="micState" class="val">OFF</span></span>
         <span class="kv"><span class="key">LEVEL</span><span id="lvlDb" class="val">-inf dBFS</span></span>
         <span class="kv"><span class="key">VU</span><span class="vu"><div id="vuFill"></div></span></span>
+        <span class="kv"><span class="key">ASR</span><span id="asrMs" class="val">—</span></span>
+        <span class="kv"><span class="key">ADAPT</span><span id="adapt" class="val">—</span></span>
       </div>
 
       <div class="warn" style="margin-top:10px">
-        <b>Monitoring audio:</b> If you enable monitoring, use headphones to avoid feedback.
-        You can switch between <b>Voice-isolated</b> listening (speech band) and <b>Full spectrum</b>.
+        <b>Monitoring audio:</b> Use headphones. Toggle between <b>Voice-isolated</b> and <b>All sounds</b>.
+        Translation runs continuously on the raw mic (windows), but the heavy work is off the UI thread.
       </div>
 
       <div class="row" style="margin-top:10px">
         <div class="col" style="flex:1 1 360px">
-          <div class="small"><b>TRANSCRIPTION MODE</b></div>
-          <label class="toggle" title="Always listen (no VAD), more CPU">
+          <div class="small"><b>TRANSCRIPTION</b></div>
+          <label class="toggle">
             <input id="alwaysOn" type="checkbox" checked />
             <span class="track"><span class="thumb"></span></span>
-            <span class="label">Always-on transcription</span>
+            <span class="label">Always-on</span>
           </label>
-          <div class="small">If your phone stutters, raise UPDATE to 2–3s.</div>
+          <div class="small">Always-on still skips truly silent audio.</div>
         </div>
 
         <div class="col" style="flex:1 1 360px">
           <div class="small"><b>MONITOR</b></div>
-          <label class="toggle" title="Play mic to headphones">
+          <label class="toggle">
             <input id="monitorOn" type="checkbox" />
             <span class="track"><span class="thumb"></span></span>
             <span class="label">Monitor audio</span>
           </label>
-          <label class="toggle" title="Confirm headphones to unlock monitoring volume">
+          <label class="toggle">
             <input id="hpConfirm" type="checkbox" />
             <span class="track"><span class="thumb"></span></span>
             <span class="label">I am wearing headphones</span>
@@ -223,13 +224,13 @@
 
         <div class="col" style="flex:1 1 360px">
           <div class="small"><b>LISTENING FILTER</b></div>
-          <div class="seg" aria-label="Listening filter">
+          <div class="seg">
             <input type="radio" name="listen" id="listenVoice" checked>
             <label for="listenVoice">Voice-isolated</label>
             <input type="radio" name="listen" id="listenAll">
             <label for="listenAll">All sounds</label>
           </div>
-          <div class="small">This affects what you hear (monitor). Transcription always uses raw mic.</div>
+          <div class="small">Affects monitoring only (what you hear).</div>
         </div>
       </div>
 
@@ -237,19 +238,17 @@
         <div class="col" style="flex:1 1 340px">
           <div class="small"><b>Monitor volume</b>: <span id="monVolLabel">0.00</span></div>
           <input id="monVol" type="range" min="0" max="0.6" step="0.01" value="0" disabled />
-          <div class="small">Locked until headphones confirmed.</div>
         </div>
 
         <div class="col" style="flex:1 1 340px">
-          <div class="small"><b>WINDOW</b> sec: <span id="winSecLabel">2.5</span></div>
+          <div class="small"><b>WINDOW</b> sec: <span id="winSecLabel">2.0</span></div>
           <input id="winSec" type="range" min="1.5" max="6" step="0.5" value="2.0" />
-          <div class="small">How much recent audio is transcribed each run.</div>
         </div>
 
         <div class="col" style="flex:1 1 340px">
           <div class="small"><b>UPDATE</b> sec: <span id="updSecLabel">1.0</span></div>
           <input id="updSec" type="range" min="0.5" max="3" step="0.5" value="1.0" />
-          <div class="small">Lower is more live but heavier.</div>
+          <div class="small">Adaptive mode may raise this if ASR is slower than UPDATE.</div>
         </div>
       </div>
 
@@ -276,7 +275,7 @@
       </div>
       <textarea id="out" placeholder="(live output will appear here)"></textarea>
       <div class="small" style="margin-top:10px">
-        Tip: If you want the fastest, set UPDATE=1.5s and WINDOW=2.0s. If you want more accurate translation, WINDOW=3.0s.
+        Recommended S23 defaults: WINDOW 2.0s, UPDATE 1.0s. If ASR time is high, it will auto-adapt (raise UPDATE).
       </div>
     </div>
   </div>
@@ -293,7 +292,6 @@
   </div>
 
   <script type="module">
-    import { pipeline, env } from "https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2";
     const $ = (id) => document.getElementById(id);
 
     const modelSel = $("modelSel");
@@ -312,6 +310,8 @@
     const micState = $("micState");
     const lvlDb = $("lvlDb");
     const vuFill = $("vuFill");
+    const asrMs = $("asrMs");
+    const adapt = $("adapt");
 
     const alwaysOn = $("alwaysOn");
 
@@ -339,22 +339,15 @@
     const ovSub = $("ovSub");
     const ovErr = $("ovErr");
     const btnCloseOv = $("btnCloseOv");
+    btnCloseOv.addEventListener("click", () => overlay.classList.remove("show"));
 
     function showOverlay(title, sub, err=null){
       ovTitle.textContent = title;
       ovSub.textContent = sub || "";
-      if (err){
-        ovErr.style.display = "block";
-        ovErr.textContent = err;
-      } else {
-        ovErr.style.display = "none";
-        ovErr.textContent = "";
-      }
+      if (err){ ovErr.style.display="block"; ovErr.textContent = err; }
+      else { ovErr.style.display="none"; ovErr.textContent=""; }
       overlay.classList.add("show");
     }
-    function hideOverlay(){ overlay.classList.remove("show"); }
-    btnCloseOv.addEventListener("click", hideOverlay);
-
     function setStatus(s){ statusEl.textContent = s; }
 
     function appendWords(s){
@@ -363,17 +356,16 @@
       out.scrollTop = out.scrollHeight;
     }
 
-    // Audio state
+    // ===== Audio capture =====
     let audioCtx=null, stream=null, source=null;
     let analyser=null, freqData=null, timeData=null;
     let captureNode=null;
 
-    // Monitor graph nodes
+    // monitor nodes
     let monitorGain=null;
-    let speechBand=null; // biquad bandpass
-    let monitorInput=null;
+    let speechBand=null;
 
-    // Ring buffer
+    // ring buffer
     let rb=null, rbSize=0, rbWrite=0, rbFilled=0;
     function rbInit(sr){
       rbSize = Math.max(1, Math.floor(sr*12));
@@ -401,30 +393,22 @@
       return outArr;
     }
 
-    // ASR
-    let asr=null, modelLoaded=false, loadedModelId=null;
-    let busy=false;
-    let inferTimer=null;
-
     function maxAbs(pcm){
       let m=0;
-      for (let i=0;i<pcm.length;i++){
-        const a=Math.abs(pcm[i]); if (a>m) m=a;
-      }
+      for (let i=0;i<pcm.length;i++){ const a=Math.abs(pcm[i]); if (a>m) m=a; }
       return m;
     }
 
-    // Words-only cleaning (simple)
     function cleanTranscript(raw){
       if (!raw) return "";
       let t=String(raw);
       t = t.replace(/[♪♫]+/g," ");
-      t = t.replace(/\[([^\]]+)\]/g, " ");
-      t = t.replace(/\(([^\)]+)\)/g, " ");
-      t = t.replace(/\b(BLANK_AUDIO|MUS_AUDIO|NO_AUDIO|MUSIC)\b/gi, " ");
-      t = t.replace(/\s+/g," ").trim();
+      t = t.replace(/\\[([^\\]]+)\\]/g, " ");
+      t = t.replace(/\\(([^\\)]+)\\)/g, " ");
+      t = t.replace(/\\b(BLANK_AUDIO|MUS_AUDIO|NO_AUDIO|MUSIC)\\b/gi, " ");
+      t = t.replace(/\\s+/g," ").trim();
       if (!/[A-Za-z]/.test(t)) return "";
-      if (/\b(blank_audio|mus_audio|no_audio|music)\b/i.test(t)) return "";
+      if (/\\b(blank_audio|mus_audio|no_audio|music)\\b/i.test(t)) return "";
       return t;
     }
 
@@ -463,6 +447,77 @@
       return true;
     }
 
+    // ===== Worker ASR =====
+    let worker = null;
+    let modelLoaded = false;
+    let loadedModelId = null;
+    let workerBusy = false;
+    let lastAsrDuration = 0;
+    let adaptiveMinUpdate = 1.0;
+
+    function makeWorker(){
+      const workerCode = `
+        import { pipeline, env } from "https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2";
+        env.allowLocalModels = false;
+        env.useBrowserCache = true;
+
+        let asr = null;
+        let loaded = false;
+        let loadedId = null;
+
+        function cleanTranscript(raw){
+          if (!raw) return "";
+          let t = String(raw);
+          t = t.replace(/[♪♫]+/g," ");
+          t = t.replace(/\\[([^\\]]+)\\]/g, " ");
+          t = t.replace(/\\(([^\\)]+)\\)/g, " ");
+          t = t.replace(/\\b(BLANK_AUDIO|MUS_AUDIO|NO_AUDIO|MUSIC)\\b/gi, " ");
+          t = t.replace(/\\s+/g," ").trim();
+          if (!/[A-Za-z]/.test(t)) return "";
+          if (/\\b(blank_audio|mus_audio|no_audio|music)\\b/i.test(t)) return "";
+          return t;
+        }
+
+        self.onmessage = async (ev) => {
+          const msg = ev.data || {};
+          if (msg.type === "load"){
+            const { modelId, device } = msg;
+            try{
+              asr = await pipeline("automatic-speech-recognition", modelId, { device });
+              loaded = true;
+              loadedId = modelId;
+              self.postMessage({ type:"loaded", ok:true, modelId });
+            } catch (e){
+              self.postMessage({ type:"loaded", ok:false, error: String(e?.message || e) });
+            }
+            return;
+          }
+          if (msg.type === "run"){
+            if (!loaded || !asr){
+              self.postMessage({ type:"result", ok:false, error:"model_not_loaded" });
+              return;
+            }
+            const t0 = performance.now();
+            try{
+              const pcm = new Float32Array(msg.pcm);
+              const windowSec = msg.windowSec;
+              const task = msg.task;
+              const res = await asr(pcm, { chunk_length_s: windowSec, stride_length_s: 0.2, return_timestamps:false, task });
+              const text = cleanTranscript((res?.text || "").trim());
+              const dt = performance.now() - t0;
+              self.postMessage({ type:"result", ok:true, text, ms: dt });
+            } catch (e){
+              const dt = performance.now() - t0;
+              self.postMessage({ type:"result", ok:false, error: String(e?.message || e), ms: dt });
+            }
+          }
+        };
+      `;
+      const url = URL.createObjectURL(new Blob([workerCode], { type:"text/javascript" }));
+      // module worker to allow ESM import
+      return new Worker(url, { type: "module" });
+    }
+
     async function loadModel(){
       if (modelLoaded) return;
       if (!requireMultilingualForTranslate()) return;
@@ -472,29 +527,56 @@
       modelState.textContent = "LOADING…";
       setStatus("loading model…");
 
-      env.allowLocalModels = false;
-      env.useBrowserCache = true;
+      // create worker
+      if (!worker) worker = makeWorker();
 
+      // Android stability: use wasm
       const modelId = modelSel.value;
-      const device = "wasm"; // Android stability
+      workerBusy = true;
 
-      try{
-        asr = await pipeline("automatic-speech-recognition", modelId, { device });
-        modelLoaded = true;
-        loadedModelId = modelId;
-        modelSel.disabled = true;
+      worker.onmessage = (ev) => {
+        const msg = ev.data || {};
+        if (msg.type === "loaded"){
+          workerBusy = false;
+          if (msg.ok){
+            modelLoaded = true;
+            loadedModelId = msg.modelId;
+            modelSel.disabled = true;
+            dotModel.classList.remove("warn");
+            dotModel.classList.add("on");
+            modelState.textContent = "READY";
+            setStatus("model loaded");
+          } else {
+            btnLoadModel.disabled = false;
+            dotModel.classList.remove("warn");
+            modelState.textContent = "ERROR";
+            setStatus("model load error");
+            showOverlay("Model load failed", "Could not load the AI model in worker.", msg.error || "unknown");
+          }
+        }
+        if (msg.type === "result"){
+          workerBusy = false;
+          if (typeof msg.ms === "number"){
+            lastAsrDuration = msg.ms;
+            asrMs.textContent = msg.ms.toFixed(0) + "ms";
+          }
+          // Adapt update if needed (keep free and stable)
+          if (lastAsrDuration > (Number(updSec.value) * 1000) * 0.85){
+            adaptiveMinUpdate = Math.max(adaptiveMinUpdate, Math.min(3.0, (lastAsrDuration/1000) + 0.3));
+            adapt.textContent = "raised to " + adaptiveMinUpdate.toFixed(1) + "s";
+          } else if (adaptiveMinUpdate > 1.0 && lastAsrDuration < 700){
+            adaptiveMinUpdate = Math.max(1.0, adaptiveMinUpdate - 0.1);
+            adapt.textContent = "relax " + adaptiveMinUpdate.toFixed(1) + "s";
+          }
 
-        dotModel.classList.remove("warn");
-        dotModel.classList.add("on");
-        modelState.textContent = "READY";
-        setStatus("model loaded");
-      } catch (e){
-        btnLoadModel.disabled = false;
-        dotModel.classList.remove("warn");
-        modelState.textContent = "ERROR";
-        setStatus("model load error");
-        showOverlay("Model load failed", "Could not load the AI model.", String(e?.message || e));
-      }
+          if (msg.ok && msg.text){
+            appendWords(msg.text);
+          }
+          setStatus("listening");
+        }
+      };
+
+      worker.postMessage({ type:"load", modelId, device:"wasm" });
     }
 
     function updateMonitorLock(){
@@ -511,19 +593,16 @@
 
     function buildMonitorGraph(){
       if (!audioCtx || !source) return;
-      // cleanup
       try{ monitorGain?.disconnect(); }catch{}
       try{ speechBand?.disconnect(); }catch{}
       monitorGain = audioCtx.createGain();
       monitorGain.gain.value = 0;
 
-      // speech bandpass for listening (300-3400) approximate: bandpass centered ~1200Hz with Q ~0.6
       speechBand = audioCtx.createBiquadFilter();
       speechBand.type = "bandpass";
       speechBand.frequency.value = 1200;
       speechBand.Q.value = 0.6;
 
-      // choose routing
       if (listenVoice.checked){
         source.connect(speechBand);
         speechBand.connect(monitorGain);
@@ -535,10 +614,8 @@
     }
 
     function rebuildMonitor(){
-      // disconnect and rebuild quickly to switch between voice/all
       if (!audioCtx || !source) return;
       try{ source.disconnect(); }catch{}
-      // re-connect analyser and capture afterwards
       source.connect(analyser);
       if (captureNode) source.connect(captureNode);
       buildMonitorGraph();
@@ -595,7 +672,6 @@
         captureNode = sp;
       }
 
-      // monitor graph (only if enabled)
       buildMonitorGraph();
 
       btnStop.disabled = false;
@@ -637,23 +713,26 @@
       setStatus("stopped");
     }
 
+    let inferTimer=null;
     function stopInferenceLoop(){
       if (inferTimer){ clearTimeout(inferTimer); inferTimer=null; }
-      busy=false;
+      workerBusy = false;
     }
     function startInferenceLoop(){
       stopInferenceLoop();
-      const intervalMs = Math.max(450, Number(updSec.value)*1000);
       const tick = async () => {
         await runInferenceTick();
-        inferTimer = setTimeout(tick, intervalMs);
+        const desired = Number(updSec.value);
+        const interval = Math.max(0.5, Math.max(desired, adaptiveMinUpdate));
+        updSecLabel.textContent = interval.toFixed(1);
+        inferTimer = setTimeout(tick, interval*1000);
       };
-      inferTimer = setTimeout(tick, intervalMs);
+      inferTimer = setTimeout(tick, 600);
     }
 
     async function runInferenceTick(){
-      if (!audioCtx || !rb || !modelLoaded || !asr) return;
-      if (busy) return;
+      if (!audioCtx || !rb || !modelLoaded || !worker) return;
+      if (workerBusy) return;
 
       const sr = audioCtx.sampleRate;
       const windowSec = Number(winSec.value);
@@ -661,44 +740,24 @@
 
       const pcm = rbGetLast(windowSec, sr);
 
-      // Always-on means don't gate; otherwise, light gating to avoid blank runs
-      if (!alwaysOn.checked){
-        const m = maxAbs(pcm);
-        if (m < 0.0012) return;
-      } else {
-        const m = maxAbs(pcm);
-        if (m < 0.0009) return;
-      }
+      // silence guard (keeps "monitor all voices" but avoids wasting cycles)
+      const m = maxAbs(pcm);
+      if (m < (alwaysOn.checked ? 0.0009 : 0.0013)) return;
 
-      busy = true;
+      workerBusy = true;
       setStatus("transcribing…");
 
+      // Transfer PCM buffer to worker (zero-copy)
+      const pcmBuf = pcm.buffer;
       try{
-        const res = await asr(pcm, {
-          chunk_length_s: windowSec,
-          stride_length_s: 0.2,
-          return_timestamps: false,
+        worker.postMessage({
+          type:"run",
+          pcm: pcmBuf,
+          windowSec: windowSec,
           task: (translateOn.checked ? "translate" : undefined)
-        });
-
-        const cleaned = cleanTranscript((res?.text || "").trim());
-        if (!cleaned) return;
-
-        appendWords(cleaned);
-
-        // Optional audible translation readout
-        if ("speechSynthesis" in window){
-          // only speak when monitoring is off (to reduce chaos) OR if user wants it
-          // We'll speak always if translateOn checked and volume is low; keep simple:
-        }
+        }, [pcmBuf]);
       } catch (e){
-        const msg = String(e?.message || e);
-        if (!msg.toLowerCase().includes("blank_audio")){
-          showOverlay("Transcription error", "The model threw an error.", msg);
-        }
-      } finally {
-        busy = false;
-        setStatus("listening");
+        workerBusy = false;
       }
     }
 
@@ -720,19 +779,22 @@
       const peakHz = (peakIdx/freqData.length) * (audioCtx.sampleRate/2);
       pkEl.textContent = peakHz.toFixed(0);
 
-      specCtx.clearRect(0,0,spec.width,spec.height);
-      const w=spec.width, h=spec.height;
-      const n=freqData.length;
-      const step=2;
-      const bars=Math.floor(n/step);
-      const barW=w/bars;
-      let bi=0;
-      for (let i=0;i<n;i+=step){
-        const v = Math.max(freqData[i], freqData[i+1]||0)/255;
-        const barH=v*(h-12);
-        specCtx.fillStyle = `rgba(53,255,106,${0.08+v*0.85})`;
-        specCtx.fillRect(bi*barW, h-barH, barW, barH);
-        bi++;
+      // throttle drawing to reduce jank
+      if ((performance.now() % 2) < 1){
+        specCtx.clearRect(0,0,spec.width,spec.height);
+        const w=spec.width, h=spec.height;
+        const n=freqData.length;
+        const step=2;
+        const bars=Math.floor(n/step);
+        const barW=w/bars;
+        let bi=0;
+        for (let i=0;i<n;i+=step){
+          const v = Math.max(freqData[i], freqData[i+1]||0)/255;
+          const barH=v*(h-12);
+          specCtx.fillStyle = `rgba(53,255,106,${0.08+v*0.85})`;
+          specCtx.fillRect(bi*barW, h-barH, barW, barH);
+          bi++;
+        }
       }
 
       requestAnimationFrame(drawLoop);
@@ -745,8 +807,8 @@
 
     btnHelp.addEventListener("click", () => {
       showOverlay(
-        "Live Translate + Monitor Help",
-        "For closest-to-real-time translation on Android: MODEL whisper-tiny, TRANSLATE ON, ALWAYS-ON ON, WINDOW 2–3s, UPDATE 1–1.5s. If stutter: UPDATE 2–3s. Monitoring requires headphones confirm.",
+        "Worker Stable Help (S23)",
+        "This build moves Whisper inference to a Worker to prevent UI stutter. If it still lags: raise UPDATE to 1.5–2.0s or WINDOW to 3.0s. Monitoring requires headphones confirm.",
         null
       );
     });
@@ -757,13 +819,13 @@
     });
     btnClear.addEventListener("click", () => { out.value=""; });
 
-    translateOn.addEventListener("change", () => { requireMultilingualForTranslate(); if (audioCtx) startInferenceLoop(); });
+    translateOn.addEventListener("change", () => { requireMultilingualForTranslate(); });
 
-    winSec.addEventListener("input", () => { winSecLabel.textContent = "2.0"; if (audioCtx) startInferenceLoop(); });
-    updSec.addEventListener("input", () => { updSecLabel.textContent = "1.0"; if (audioCtx) startInferenceLoop(); });
+    winSec.addEventListener("input", () => { winSecLabel.textContent = Number(winSec.value).toFixed(1); });
+    updSec.addEventListener("input", () => { updSecLabel.textContent = Number(updSec.value).toFixed(1); adaptiveMinUpdate = Number(updSec.value); adapt.textContent = "manual"; });
 
     monitorOn.addEventListener("change", () => { updateMonitorLock(); });
-    hpConfirm.addEventListener("change", () => { updateMonitorLock(); monVol.disabled = !(monitorOn.checked && hpConfirm.checked); });
+    hpConfirm.addEventListener("change", () => { updateMonitorLock(); });
 
     monVol.addEventListener("input", () => {
       monVolLabel.textContent = Number(monVol.value).toFixed(2);
@@ -773,7 +835,7 @@
     listenVoice.addEventListener("change", () => { if (audioCtx) rebuildMonitor(); });
     listenAll.addEventListener("change", () => { if (audioCtx) rebuildMonitor(); });
 
-    alwaysOn.addEventListener("change", () => { if (audioCtx) startInferenceLoop(); });
+    alwaysOn.addEventListener("change", () => { /* keep silence guard */ });
 
     modelSel.addEventListener("change", () => {
       if (modelLoaded && loadedModelId){
@@ -789,11 +851,12 @@
     modelState.textContent = "NOT LOADED";
     micState.textContent = "OFF";
     setStatus("idle");
-
-    winSecLabel.textContent = Number(winSec.value).toFixed(1);
-    updSecLabel.textContent = Number(updSec.value).toFixed(1);
-    monVolLabel.textContent = Number(monVol.value).toFixed(2);
+    winSecLabel.textContent = "2.0";
+    updSecLabel.textContent = "1.0";
+    monVolLabel.textContent = "0.00";
     monVol.disabled = true;
+    asrMs.textContent = "—";
+    adapt.textContent = "—";
     requireMultilingualForTranslate();
   </script>
 </body>
