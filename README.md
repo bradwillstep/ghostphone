@@ -147,6 +147,14 @@
 
       <div class="small" style="margin-top:10px">
         If JS stays "loading…", you are seeing cached content. Clear site data / unregister old PWA.
+      <details style="margin-top:10px">
+        <summary class="small"><b>Model download diagnostics</b> (expand if loading is stuck)</summary>
+        <div class="small" style="margin-top:8px">
+          This shows recent download URLs/statuses while loading the model. If it hangs, it’s usually VPN/Private DNS/adblock blocking the model host/CDN.
+        </div>
+        <textarea id="diag" placeholder="(diagnostics log)"></textarea>
+      </details>
+
       </div>
     </div>
 
@@ -223,11 +231,24 @@
     const updSecLabel = el("updSecLabel");
 
     const out = el("out");
+    const diag = el("diag");
+
     const btnLoadModel = el("btnLoadModel");
     const btnStart = el("btnStart");
     const btnStop = el("btnStop");
 
     function setStatus(s){ statusEl.textContent = s; }
+    
+    const diagLines = [];
+    function logDiag(line){
+      if (!diag) return;
+      diagLines.push(line);
+      // cap
+      if (diagLines.length > 200) diagLines.shift();
+      diag.value = diagLines.join("\n");
+      diag.scrollTop = diag.scrollHeight;
+    }
+
     function appendWords(s){
       const prefix = out.value.length && !out.value.endsWith("\n") ? "\n" : "";
       out.value += prefix + s;
@@ -237,6 +258,28 @@
     winSecLabel.textContent = Number(winSec.value).toFixed(1);
     updSecLabel.textContent = Number(updSec.value).toFixed(1);
     monVolLabel.textContent = Number(monVol.value).toFixed(2);
+
+    
+    let loadTimeout = null;
+    function startLoadTimeout(){
+      if (loadTimeout) clearTimeout(loadTimeout);
+      loadTimeout = setTimeout(() => {
+        if (!modelLoaded){
+          showOverlay(
+            "Model still loading",
+            "If this takes more than ~1–2 minutes, downloads are likely blocked.",
+            "Try: disable VPN, disable Private DNS/adblock, switch Wi‑Fi, then Clear site data and reload.\n\nRecent downloads:\n" + (diag ? diag.value.slice(-2500) : "")
+          );
+          btnLoadModel.disabled = false;
+          dotModel.classList.remove("warn");
+          modelState.textContent = "STUCK";
+          setStatus("model stuck");
+        }
+      }, 90000);
+    }
+    function clearLoadTimeout(){
+      if (loadTimeout){ clearTimeout(loadTimeout); loadTimeout = null; }
+    }
 
     function requireMultilingualForTranslate(){
       if (translateOn.checked && String(modelSel.value).includes(".en")){
@@ -363,6 +406,20 @@
         env.allowLocalModels = false;
         env.useBrowserCache = true;
 
+        const _fetch = self.fetch.bind(self);
+        self.fetch = async (...args) => {
+          const url = (args && args[0]) ? String(args[0]) : "(unknown)";
+          try { self.postMessage({ type:"fetch", stage:"start", url }); } catch {}
+          try{
+            const res = await _fetch(...args);
+            try { self.postMessage({ type:"fetch", stage:"done", url, status: res.status }); } catch {}
+            return res;
+          } catch (e){
+            try { self.postMessage({ type:"fetch", stage:"error", url, error: String(e?.message || e) }); } catch {}
+            throw e;
+          }
+        };
+
         let asr = null;
 
         function cleanTranscript(raw){
@@ -380,6 +437,14 @@
 
         self.onmessage = async (ev) => {
           const msg = ev.data || {};
+
+      if (msg.type === "fetch"){
+        const st = msg.stage || "";
+        if (st === "start") logDiag("[fetch] " + msg.url);
+        else if (st === "done") logDiag("[done]  " + msg.status + " " + msg.url);
+        else if (st === "error") logDiag("[err]   " + (msg.error||"") + " " + msg.url);
+      }
+
           if (msg.type === "load"){
             try{
               asr = await pipeline("automatic-speech-recognition", msg.modelId, { device: msg.device || "wasm" });
@@ -423,13 +488,17 @@
           dotModel.classList.remove("warn");
           dotModel.classList.add("on");
           modelState.textContent = "READY";
+          clearLoadTimeout();
           setStatus("model loaded");
+          logDiag("[load] model loaded OK");
         } else {
           btnLoadModel.disabled = false;
           dotModel.classList.remove("warn");
           modelState.textContent = "ERROR";
           setStatus("model load error");
+          clearLoadTimeout();
           showOverlay("Model load failed", "Worker could not load the model.", msg.error || "unknown");
+          logDiag("[load] failed: " + (msg.error||"unknown"));
         }
       }
       if (msg.type === "result"){
@@ -458,6 +527,8 @@
       dotModel.classList.add("warn");
       modelState.textContent = "LOADING…";
       setStatus("loading model…");
+      logDiag("[load] starting model load: " + modelSel.value);
+      startLoadTimeout();
 
       if (!worker){
         worker = makeWorker();
