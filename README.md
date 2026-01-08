@@ -31,8 +31,14 @@
     .pill { padding: 4px 8px; border-radius: 999px; background: #0a0c0f; border: 1px solid #222a35; }
     canvas { width: 100%; height: 190px; background: #0a0c0f; border-radius: 12px; border: 1px solid #222a35; }
     textarea {
-      width: 100%; min-height: 220px; resize: vertical; border-radius: 12px;
-      border: 1px solid #222a35; background: #0a0c0f; color: #e8eef6; padding: 10px;
+      width: 100%; min-height: 240px; resize: vertical; border-radius: 12px;
+      border: 1px solid #222a35; background: #0a0c0f; color: #e8eef6; padding: 12px;
+      font-size: 14px; line-height: 1.45;
+    }
+    .tinyarea {
+      width: 100%; min-height: 120px; resize: vertical; border-radius: 12px;
+      border: 1px solid #222a35; background: #0a0c0f; color: #b9c6d8; padding: 10px;
+      font-size: 12px; line-height: 1.35;
     }
     .warn { border: 1px solid #4a2b15; background: #16110c; border-radius: 12px; padding: 10px; }
     .ok { border: 1px solid #1f3a2a; background: #0e1612; border-radius: 12px; padding: 10px; }
@@ -62,13 +68,14 @@
       display:none; border-radius: 12px; padding: 10px; border: 1px solid #2a3341; background: #0a0c0f;
     }
     .banner.show { display:block; }
+    details { border: 1px solid #222a35; border-radius: 12px; padding: 10px; background: #0a0c0f; }
+    summary { cursor: pointer; font-weight: 700; }
     a { color: #7db1ff; }
   </style>
 </head>
 <body>
   <h1>Ultra Listener — Mic → (Shift/Scan) → AI Transcribe → Speak</h1>
 
-  <!-- Top banner for environment warnings -->
   <div id="envBanner" class="banner small"></div>
 
   <div class="grid">
@@ -183,7 +190,7 @@
             <input type="checkbox" id="ttsOn" checked />
             Speak recognized text out loud (SpeechSynthesis)
           </label>
-          <div class="small">Uses your browser’s built-in voice.</div>
+          <div class="small">Filters out non-word noises like “(sigh)”, “(sniff)”, “(snoring)”, etc.</div>
         </div>
 
         <div class="col" style="flex: 1 1 340px;">
@@ -201,7 +208,7 @@
             <input type="checkbox" id="scanOn" />
             Band-scan mode (band-pass sweep) + peak list
           </label>
-          <div class="small">Sweeps a band-pass filter and logs strongest bands.</div>
+          <div class="small">Sweeps a band-pass filter and logs strongest bands (in Debug Log).</div>
         </div>
 
         <div class="col" style="flex: 1 1 220px;">
@@ -223,16 +230,15 @@
       </div>
 
       <div class="ok small" style="margin-top:10px">
-        <b>Tip (GitHub Pages):</b> Use the Pages URL (starts with <span class="codepill">https://</span>), not the
-        GitHub file viewer (<span class="codepill">github.com/.../blob/...</span>).
+        <b>Tip:</b> The main output is now <b>words only</b>. Logs (errors/scan/anomalies) go to the Debug Log.
       </div>
     </div>
 
     <div class="card">
       <div class="row" style="justify-content: space-between;">
         <div>
-          <div class="mono">Live Output</div>
-          <div class="small">Transcripts + hints + scan/anomaly logs.</div>
+          <div class="mono">Words Only</div>
+          <div class="small">Clean transcript output (no “(sigh)”, “(sniff)”, “(snoring)”, etc.).</div>
         </div>
         <div class="row">
           <button id="btnCopy" class="secondary">Copy</button>
@@ -240,7 +246,15 @@
         </div>
       </div>
 
-      <textarea id="out" placeholder="(output appears here)"></textarea>
+      <textarea id="out" placeholder="(recognized words appear here)"></textarea>
+
+      <details style="margin-top:10px">
+        <summary>Debug Log (optional)</summary>
+        <div class="small" style="margin:8px 0; opacity:.9">
+          Status messages, scan peaks, anomaly flags, and errors appear here.
+        </div>
+        <textarea id="log" class="tinyarea" placeholder="(debug log)"></textarea>
+      </details>
 
       <div class="small warn" style="margin-top:10px">
         <b>Reality check:</b> Most microphones cannot capture true ultrasound reliably, and human speech doesn’t
@@ -327,6 +341,10 @@
     const btnCloseOverlay = $("btnCloseOverlay");
     const envBanner = $("envBanner");
 
+    // Output areas
+    const out = $("out");
+    const log = $("log");
+
     // Visuals
     const spec = $("spec");
     const ctx2d = spec.getContext("2d");
@@ -357,14 +375,11 @@
     const chunkSecLabel = $("chunkSecLabel");
 
     const ttsOn = $("ttsOn");
-
     const anomalyOn = $("anomalyOn");
 
     const scanOn = $("scanOn");
     const scanSpeed = $("scanSpeed");
     const scanBand = $("scanBand");
-
-    const out = $("out");
 
     // ======= Audio state =======
     let audioCtx = null;
@@ -405,15 +420,21 @@
     // ======= UX helpers =======
     function setStatus(s) { statusEl.textContent = s; }
 
-    function appendLine(line) {
-      const prefix = out.value.length && !out.value.endsWith("\\n") ? "\\n" : "";
+    function nowTime() {
+      const d = new Date();
+      return d.toLocaleTimeString([], { hour12: true });
+    }
+
+    function appendTranscript(line) {
+      const prefix = out.value.length && !out.value.endsWith("\n") ? "\n" : "";
       out.value += prefix + line;
       out.scrollTop = out.scrollHeight;
     }
 
-    function nowTime() {
-      const d = new Date();
-      return d.toLocaleTimeString([], { hour12: true });
+    function appendLog(line) {
+      const prefix = log.value.length && !log.value.endsWith("\n") ? "\n" : "";
+      log.value += prefix + line;
+      log.scrollTop = log.scrollHeight;
     }
 
     function showOverlay({ title, subtitle, errorHtml } = {}) {
@@ -451,7 +472,7 @@
         envBanner.innerHTML = "<b>Heads up:</b><br>" + msgs.map(m => "• " + m).join("<br>");
       } else if (isPages) {
         envBanner.classList.add("show");
-        envBanner.innerHTML = "<b>GitHub Pages detected:</b> When you press <span class='codepill'>Start Mic</span>, your browser should prompt for microphone permission.";
+        envBanner.innerHTML = "<b>GitHub Pages detected:</b> Press <span class='codepill'>Start Mic</span> and allow microphone access when prompted.";
       } else {
         envBanner.classList.remove("show");
       }
@@ -470,7 +491,6 @@
     }
 
     async function queryPermissionIfPossible() {
-      // Not all browsers support Permissions API for microphone.
       try {
         if (!navigator.permissions || !navigator.permissions.query) return null;
         const p = await navigator.permissions.query({ name: "microphone" });
@@ -491,6 +511,60 @@
 
       window.speechSynthesis.cancel();
       window.speechSynthesis.speak(u);
+    }
+
+    // ======= Transcript cleaning (words-only) =======
+    const NON_WORD_CUES = [
+      "sigh", "sighs", "sniff", "sniffs", "sniffling", "snore", "snoring",
+      "breath", "breathing", "inhale", "exhale",
+      "cough", "coughs", "coughing",
+      "laugh", "laughs", "laughter",
+      "whispering", "mumbling", "grunt", "groan", "humming",
+      "music", "applause", "clapping",
+      "silence", "background noise", "noise",
+      "cry", "crying", "sob", "sobbing",
+      "yawn", "yawning",
+      "clears throat", "clearing throat",
+      "lip smack", "smacking"
+    ];
+
+    function looksLikeCue(s) {
+      const t = String(s || "").trim().toLowerCase();
+      if (!t) return true;
+
+      const letters = (t.match(/[a-z]/g) || []).length;
+      if (letters === 0) return true;
+
+      if (t.startsWith("sound of ") || t.startsWith("sounds of ")) return true;
+
+      for (const cue of NON_WORD_CUES) {
+        if (t === cue) return true;
+        if (t.includes(cue) && t.length <= cue.length + 10) return true; // e.g. "soft sigh"
+      }
+      return false;
+    }
+
+    function cleanTranscript(raw) {
+      if (!raw) return "";
+      let t = String(raw);
+
+      // Remove musical notes
+      t = t.replace(/[♪♫]+/g, " ");
+
+      // Remove bracketed/parenthesized cues: [sigh], (snoring)
+      t = t.replace(/\[([^\]]+)\]/g, (m, inner) => looksLikeCue(inner) ? " " : m);
+      t = t.replace(/\(([^\)]+)\)/g, (m, inner) => looksLikeCue(inner) ? " " : m);
+
+      // If the whole thing is basically a cue, drop it.
+      if (looksLikeCue(t.trim())) return "";
+
+      // Normalize whitespace
+      t = t.replace(/\s+/g, " ").trim();
+
+      // Must contain at least one letter
+      if (!/[A-Za-z]/.test(t)) return "";
+
+      return t;
     }
 
     // ======= Audio math =======
@@ -524,36 +598,6 @@
       }
       const hz = (peakIdx / freqBytes.length) * nyquist;
       return { peakIdx, hz };
-    }
-
-    function phonemeHint(freqBytes, nyquist) {
-      // conservative "vowel-ish" hints (not words)
-      const n = freqBytes.length;
-      const bandEnergy = (loHz, hiHz) => {
-        const lo = Math.max(0, Math.floor((loHz / nyquist) * n));
-        const hi = Math.min(n - 1, Math.floor((hiHz / nyquist) * n));
-        let s = 0;
-        for (let i = lo; i <= hi; i++) s += (freqBytes[i] / 255);
-        return s;
-      };
-
-      const low = bandEnergy(80, 300);
-      const f1 = bandEnergy(300, 900);
-      const f2 = bandEnergy(900, 2600);
-      const high = bandEnergy(2600, 6000);
-
-      const total = low + f1 + f2 + high + 1e-9;
-      const rLow = low / total, rF1 = f1 / total, rF2 = f2 / total, rHigh = high / total;
-
-      let hint = "unknown";
-      if (rLow > 0.30 && rHigh < 0.10) hint = "vowel-ish: 'oo' (rough)";
-      else if (rF2 > 0.38 && rHigh > 0.12) hint = "vowel-ish: 'ee' (rough)";
-      else if (rF1 > 0.32 && rF2 < 0.33) hint = "vowel-ish: 'ah' (rough)";
-      else if (rF1 > 0.25 && rF2 > 0.25) hint = "vowel-ish: 'eh/ih' (rough)";
-
-      const activity = total / n;
-      if (activity < 0.02) return null;
-      return hint;
     }
 
     function applyHeterodyneToPCM(pcm, sampleRate, shiftHzVal) {
@@ -661,15 +705,15 @@
 
       const modelId = modelSel.value;
       setStatus("loading model…");
-      appendLine(`[${nowTime()}] Loading model: ${modelId}`);
+      appendLog(`[${nowTime()}] Loading model: ${modelId}`);
 
       const device = (navigator.gpu ? "webgpu" : "wasm");
-      appendLine(`[${nowTime()}] Backend: ${device}`);
+      appendLog(`[${nowTime()}] Backend: ${device}`);
 
       asr = await pipeline("automatic-speech-recognition", modelId, { device });
       modelLoaded = true;
       setStatus("model loaded");
-      appendLine(`[${nowTime()}] Model loaded.`);
+      appendLog(`[${nowTime()}] Model loaded.`);
     }
 
     // ======= Recording / transcription loop =======
@@ -689,7 +733,7 @@
       const chunks = [];
 
       mediaRecorder.ondataavailable = (e) => {
-        if (e.data && e.data.size > 0) chunks.push(e.data);
+        if (e.data && e.data.size > 0) chunks.append ? chunks.append(e.data) : chunks.push(e.data);
       };
 
       mediaRecorder.onstop = async () => {
@@ -739,14 +783,16 @@
           return_timestamps: false
         });
 
-        const text = (result?.text || "").trim();
-        if (text) {
-          appendLine(`[${nowTime()}] ${text}`);
-          speak(text);
+        const rawText = (result?.text || "").trim();
+        const cleaned = cleanTranscript(rawText);
+
+        if (cleaned) {
+          appendTranscript(cleaned);
+          speak(cleaned);
         }
       } catch (err) {
         console.error(err);
-        appendLine(`[${nowTime()}] [error] ${err?.message || String(err)}`);
+        appendLog(`[${nowTime()}] [error] ${err?.message || String(err)}`);
       } finally {
         busy = false;
         setStatus("listening");
@@ -790,6 +836,7 @@
       btnStart.disabled = false;
       btnStop.disabled = true;
       setStatus("stopped");
+      appendLog(`[${nowTime()}] Stopped.`);
     }
 
     // ======= Scan/anomaly =======
@@ -836,7 +883,7 @@
       if (!top.length) return;
 
       const list = top.map(p => `${p.hz.toFixed(0)}Hz`).join(", ");
-      appendLine(`[${nowTime()}] [scan peaks] ${list}`);
+      appendLog(`[${nowTime()}] [scan peaks] ${list}`);
     }
 
     function anomalyDetect(freqBytes) {
@@ -876,16 +923,11 @@
         anomEl.textContent = anomScore.toFixed(2);
 
         if (anomScore > (lowPower.checked ? 2.2 : 2.0)) {
-          appendLine(`[${nowTime()}] [anomaly] spectral change detected (score=${anomScore.toFixed(2)})`);
+          appendLog(`[${nowTime()}] [anomaly] spectral change detected (score=${anomScore.toFixed(2)})`);
           anomScore = 0.6 * anomScore;
         }
       } else {
         anomEl.textContent = "off";
-      }
-
-      const hint = phonemeHint(freqData, nyquist);
-      if (hint && (!busy) && Math.random() < 0.02) {
-        appendLine(`[${nowTime()}] [hint] ${hint}`);
       }
 
       if (scanOn.checked) logTopPeaks(freqData, nyquist);
@@ -947,7 +989,7 @@
         title = "Microphone blocked";
         subtitle = "The site is not allowed to use your microphone (permission denied).";
         html += "• Open the 🔒 site settings and set <b>Microphone</b> to <b>Allow</b>.<br>";
-        html += "• If you previously tapped <b>Block</b>, you must change it in site settings and refresh.<br>";
+        html += "• If you previously tapped <b>Block</b>, change it in site settings and refresh.<br>";
         if (permState) html += `• Permission state: <span class="codepill">${permState}</span><br>`;
       } else if (name === "NotFoundError" || name === "DevicesNotFoundError") {
         title = "No microphone found";
@@ -958,10 +1000,6 @@
         subtitle = "Another app might be using the microphone.";
         html += "• Close other apps/tabs that might be using the mic (calls, recorders, voice chat).<br>";
         html += "• Then try again.<br>";
-      } else if (name === "OverconstrainedError") {
-        title = "Mic constraints not supported";
-        subtitle = "The browser couldn’t satisfy requested audio settings.";
-        html += "• Try again; or use a different browser/device.<br>";
       } else {
         html += "• Try Chrome/Edge on Android or desktop.<br>";
       }
@@ -972,7 +1010,6 @@
     async function startMic() {
       if (!micSupportChecks()) return;
 
-      // Quick environment warning before we even ask
       if (!window.isSecureContext && location.hostname !== "localhost") {
         showOverlay({
           title: "Mic needs HTTPS (or localhost)",
@@ -992,7 +1029,6 @@
 
       if (audioCtx) return;
 
-      // Check permission state (if possible) so the overlay can be more specific
       const permState = await queryPermissionIfPossible();
       if (permState === "denied") {
         showOverlay({
@@ -1006,7 +1042,6 @@
       setStatus("requesting mic…");
 
       try {
-        // Note: using minimal constraints increases compatibility
         stream = await navigator.mediaDevices.getUserMedia({
           audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
         });
@@ -1014,11 +1049,10 @@
         const info = formatMicError(e, permState);
         setStatus("mic error");
         showOverlay({ title: info.title, subtitle: info.subtitle, errorHtml: info.html });
-        appendLine(`[${nowTime()}] [mic error] ${info.title} — ${e?.name || e}`);
+        appendLog(`[${nowTime()}] [mic error] ${info.title} — ${e?.name || e}`);
         return;
       }
 
-      // Success: hide overlay if it was open
       hideOverlay();
 
       audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -1046,7 +1080,7 @@
       btnStop.disabled = false;
 
       setStatus("listening");
-      appendLine(`[${nowTime()}] Mic started. sampleRate=${audioCtx.sampleRate}Hz`);
+      appendLog(`[${nowTime()}] Mic started. sampleRate=${audioCtx.sampleRate}Hz`);
       requestAnimationFrame(drawLoop);
     }
 
@@ -1054,7 +1088,7 @@
     btnStart.addEventListener("click", startMic);
 
     btnStop.addEventListener("click", () => {
-      appendLine(`[${nowTime()}] Stopping…`);
+      appendLog(`[${nowTime()}] Stopping…`);
       stopAll();
     });
 
@@ -1090,7 +1124,7 @@
     btnCopy.addEventListener("click", async () => {
       try {
         await navigator.clipboard.writeText(out.value || "");
-        appendLine(`[${nowTime()}] (copied to clipboard)`);
+        appendLog(`[${nowTime()}] (copied transcript to clipboard)`);
       } catch {
         alert("Copy failed (clipboard permissions). You can manually select/copy.");
       }
@@ -1128,7 +1162,7 @@
     });
 
     modelSel.addEventListener("change", () => {
-      if (modelLoaded) appendLine(`[${nowTime()}] Model already loaded. Reload the page to load a different model.`);
+      if (modelLoaded) appendLog(`[${nowTime()}] Model already loaded. Reload the page to load a different model.`);
     });
 
     // Init labels and checks
@@ -1138,7 +1172,6 @@
     enforceHeadphoneSafetyUI();
     environmentChecks();
 
-    // If permissions are denied, proactively show help (no mic prompt)
     (async () => {
       const permState = await queryPermissionIfPossible();
       if (permState === "denied") {
@@ -1151,7 +1184,7 @@
     })();
 
     setStatus("idle (Start Mic, then Load AI Model)");
-    appendLine(`[${nowTime()}] Ready. Use HTTPS (GitHub Pages) or localhost for mic access.`);
+    appendLog(`[${nowTime()}] Ready. Transcript output is words-only; noises are filtered.`);
   </script>
 </body>
 </html>
