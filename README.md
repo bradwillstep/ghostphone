@@ -90,7 +90,6 @@
     .kv{ display:inline-flex; align-items:center; gap:8px; }
     .key{ color: rgba(53,255,106,.9); font-weight:800; }
     .val{ color: var(--green-dim); }
-    
     .toggle{
       display:inline-flex; align-items:center; gap:10px;
       border:1px solid var(--border);
@@ -185,8 +184,7 @@
         <span class="kv"><span id="dotModel" class="dot"></span><span class="key">MODEL</span><span id="modelState" class="val">NOT LOADED</span></span>
         <span class="kv"><span id="dotMic" class="dot"></span><span class="key">MIC</span><span id="micState" class="val">OFF</span></span>
         <span class="kv"><span class="key">LEVEL</span><span id="lvlDb" class="val">-inf dBFS</span></span>
-        
-        <span class="kv"><span class="key">ASR</span><span id="asrMs" class="val">—</span></span>
+<span class="kv"><span class="key">ASR</span><span id="asrMs" class="val">—</span></span>
         <span class="kv"><span class="key">ADAPT</span><span id="adapt" class="val">—</span></span>
       </div>
 
@@ -297,7 +295,6 @@
     const modelState = $("modelState");
     const micState = $("micState");
     const lvlDb = $("lvlDb");
-    
     const asrMs = $("asrMs");
     const adapt = $("adapt");
 
@@ -704,8 +701,7 @@
         let dbNum = (db === "-inf") ? -99 : Number(db);
         if (!Number.isFinite(dbNum)) dbNum = -99;
         const pct = Math.max(0, Math.min(100, ((dbNum + 60) / 50) * 100));
-        
-      }, 250);
+}, 250);
     }
     function stopMeter(){
       if (meterTimer){ clearInterval(meterTimer); meterTimer = null; }
