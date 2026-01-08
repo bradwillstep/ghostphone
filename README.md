@@ -158,6 +158,53 @@
     .muted{ font-size: 12px; color: var(--green-dim); line-height: 1.35; }
     .actions{ display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end; margin-top: 10px; }
     .codepill{ display:inline-block; padding: 2px 6px; border-radius: 8px; border:1px solid var(--border); background: rgba(53,255,106,.04); }
+  
+    .statusstrip{
+      display:flex; gap:10px; flex-wrap:wrap; align-items:center;
+      margin-top:10px;
+      padding: 8px 10px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: rgba(53,255,106,.04);
+      color: var(--green-dim);
+      font-size: 12px;
+    }
+    .dot{
+      width: 8px; height: 8px; border-radius: 999px;
+      display:inline-block;
+      border: 1px solid rgba(53,255,106,.45);
+      background: rgba(53,255,106,.15);
+      box-shadow: 0 0 10px rgba(53,255,106,.12);
+      margin-right: 6px;
+      vertical-align: middle;
+    }
+    .dot.on{
+      background: rgba(53,255,106,.95);
+      border-color: rgba(53,255,106,.95);
+      box-shadow: 0 0 14px rgba(53,255,106,.35);
+    }
+    .dot.warn{
+      background: rgba(255, 215, 64, .9);
+      border-color: rgba(255, 215, 64, .9);
+      box-shadow: 0 0 14px rgba(255, 215, 64, .25);
+    }
+    .kv{ display:inline-flex; align-items:center; gap:8px; }
+    .key{ color: rgba(53,255,106,.9); font-weight: 800; }
+    .val{ color: var(--green-dim); }
+    .vu{
+      width: 140px; height: 10px; border-radius: 999px;
+      border: 1px solid rgba(53,255,106,.25);
+      background: rgba(0,0,0,.6);
+      overflow:hidden;
+    }
+    .vu > div{
+      height: 100%;
+      width: 0%;
+      background: rgba(53,255,106,.85);
+      box-shadow: 0 0 10px rgba(53,255,106,.25);
+      transition: width .08s linear;
+    }
+
   </style>
 </head>
 <body>
@@ -174,6 +221,13 @@
         <button id="btnHelp">Mic Help</button>
         <span class="pill" id="status">idle</span>
       </div>
+      <div class="statusstrip" aria-label="Status indicators">
+        <span class="kv"><span id="dotModel" class="dot"></span><span class="key">MODEL</span><span id="modelState" class="val">NOT LOADED</span></span>
+        <span class="kv"><span id="dotMic" class="dot"></span><span class="key">MIC</span><span id="micState" class="val">OFF</span></span>
+        <span class="kv"><span class="key">LEVEL</span><span id="lvlDb" class="val">-inf dBFS</span></span>
+        <span class="kv"><span class="key">VU</span><span class="vu"><div id="vuFill"></div></span></span>
+      </div>
+
 <div style="margin-top:10px">
         <canvas id="spec" width="1200" height="360"></canvas>
       </div>
@@ -360,7 +414,14 @@
     // Visuals
     const spec = $("spec");
     const ctx2d = spec.getContext("2d");
-    const srEl = $("sr");
+    
+    const dotModel = $("dotModel");
+    const dotMic = $("dotMic");
+    const modelState = $("modelState");
+    const micState = $("micState");
+    const lvlDb = $("lvlDb");
+    const vuFill = $("vuFill");
+const srEl = $("sr");
     const nyEl = $("ny");
     const pkEl = $("pk");
     const lvlEl = $("lvl");
@@ -654,12 +715,16 @@ async function loadModel(){
 
       const modelId = modelSel.value;
       setStatus("loading model…");
+      dotModel.classList.add("warn");
+      modelState.textContent = "LOADING…";
 
       const device = (navigator.gpu ? "webgpu" : "wasm");
       asr = await pipeline("automatic-speech-recognition", modelId, { device });
 
       modelLoaded = true;
       setStatus("model loaded");
+      dotModel.classList.add("on");
+      modelState.textContent = "READY";
     }
 
     async function ensureCaptureWorklet(){
@@ -765,6 +830,8 @@ async function loadModel(){
       btnStart.disabled = true;
       btnStop.disabled = false;
       setStatus("listening");
+      dotMic.classList.add("on");
+      micState.textContent = "LIVE";
       requestAnimationFrame(drawLoop);
     }
 
@@ -791,6 +858,9 @@ async function loadModel(){
       btnStart.disabled = false;
       btnStop.disabled = true;
       setStatus("stopped");
+      dotMic.classList.remove("on");
+      micState.textContent = "OFF";
+      // leave model indicator as-is
     }
 
     function stopInferenceLoop(){
@@ -887,7 +957,14 @@ async function loadModel(){
       const nyquist = audioCtx.sampleRate / 2;
       const { peakIdx, hz: peakHz } = findPeakHz(freqData, nyquist);
       pkEl.textContent = peakHz.toFixed(0);
-      lvlEl.textContent = dbfsFromTimeDomain(timeData);
+      const db = dbfsFromTimeDomain(timeData);
+      lvlEl.textContent = db;
+      lvlDb.textContent = db + " dBFS";
+      // Simple VU mapping: -60dB -> 0%, -10dB -> ~100%
+      let dbNum = (db === "-inf") ? -99 : Number(db);
+      if (!Number.isFinite(dbNum)) dbNum = -99;
+      const pct = Math.max(0, Math.min(100, ((dbNum + 60) / 50) * 100));
+      vuFill.style.width = pct.toFixed(0) + "%";
 
       // draw bars
       ctx2d.clearRect(0,0,spec.width,spec.height);
@@ -987,6 +1064,11 @@ async function loadModel(){
     updSecLabel.textContent = Number(updSec.value).toFixed(1);
     environmentChecks();
     setStatus("idle (Start Mic, then Load AI Model)");
+    modelState.textContent = "NOT LOADED";
+    micState.textContent = "OFF";
+    dotModel.classList.remove("on");
+    dotModel.classList.remove("warn");
+    dotMic.classList.remove("on");
   </script>
 </body>
 </html>
