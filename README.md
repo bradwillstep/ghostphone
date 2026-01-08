@@ -412,43 +412,81 @@
       window.speechSynthesis.speak(u);
     }
 
-    // Filter non-word cues
+    // Filter non-word cues (aggressive)
+    // This app is WORDS-ONLY. Anything that looks like a caption/tag (e.g. [BLANK_AUDIO], [MUS_AUDIO], (wind howling))
+    // is removed and will never be shown or spoken.
     const NON_WORD_CUES = [
       "sigh","sighs","sniff","sniffs","sniffling","snore","snoring",
       "breath","breathing","inhale","exhale",
       "cough","coughs","coughing",
       "laugh","laughs","laughter",
       "mumbling","grunt","groan","humming",
-      "music","applause","clapping",
+      "music","mus","mus_audio","applause","clapping",
       "silence","background noise","noise",
+      "blank_audio","audio","no_audio",
       "cry","crying","sob","sobbing",
       "yawn","yawning",
       "clears throat","clearing throat",
-      "lip smack","smacking"
+      "lip smack","smacking",
+      "wind","wind howling","howling","whistling",
+      "static","buzz","hiss","hum"
     ];
 
     function looksLikeCue(s){
       const t = String(s||"").trim().toLowerCase();
       if (!t) return true;
+
+      // If it's a common Whisper tag/caption format like BLANK_AUDIO or MUS_AUDIO (often all caps/underscores)
+      const raw = String(s||"").trim();
+      if (/^[A-Z0-9_]+$/.test(raw) && raw.length >= 4) return true; // e.g. BLANK_AUDIO, MUS_AUDIO
+      if (t.includes("blank_audio") || t.includes("mus_audio") || t.includes("no_audio")) return true;
+      if (t.includes("wind") && (t.includes("howl") || t.includes("howling"))) return true;
+
+      // If it explicitly says it's a sound caption
+      if (t.startsWith("sound of ") || t.startsWith("sounds of ")) return true;
+
+      // Mostly non-letters? Treat as cue
       const letters = (t.match(/[a-z]/g) || []).length;
       if (letters === 0) return true;
-      if (t.startsWith("sound of ") || t.startsWith("sounds of ")) return true;
+
+      // Match known cue words/phrases
       for (const cue of NON_WORD_CUES){
         if (t === cue) return true;
-        if (t.includes(cue) && t.length <= cue.length + 10) return true;
+        if (t.includes(cue) && t.length <= cue.length + 14) return true; // e.g. "loud wind"
       }
+
+      // If it's short and clearly environmental (two words like "wind howling", "door slam")
+      if (t.split(/\s+/).length <= 3 && /^(wind|door|rain|thunder|footsteps|steps|breathing|snoring|sighing|sigh|sniffing|sniff|music|static|silence)\b/.test(t)){
+        return true;
+      }
+
       return false;
     }
 
     function cleanTranscript(raw){
       if (!raw) return "";
       let t = String(raw);
+
+      // Remove musical notes
       t = t.replace(/[♪♫]+/g, " ");
+
+      // Remove bracketed/parenthesized captions/tags aggressively
       t = t.replace(/\[([^\]]+)\]/g, (m, inner) => looksLikeCue(inner) ? " " : m);
       t = t.replace(/\(([^\)]+)\)/g, (m, inner) => looksLikeCue(inner) ? " " : m);
+
+      // Also remove standalone tags that sometimes appear without brackets
+      // Examples: BLANK_AUDIO, MUS_AUDIO
+      t = t.replace(/\b(BLANK_AUDIO|MUS_AUDIO|NO_AUDIO|MUSIC)\b/gi, " ");
+
+      // If the whole thing is basically a cue, drop it
       if (looksLikeCue(t.trim())) return "";
+
+      // Normalize whitespace
       t = t.replace(/\s+/g, " ").trim();
+
+      // Must contain at least one letter (real words)
       if (!/[A-Za-z]/.test(t)) return "";
+
       return t;
     }
 
@@ -810,13 +848,19 @@ async function loadModel(){
         const cleaned = cleanTranscript(rawText);
 
         if (cleaned){
+          // Final guard: never show/speak model tags/captions
+          if (/(blank_audio|mus_audio|no_audio|music)/i.test(cleaned)) {
+            // ignore
+          } else {
+
           if (dedupeOn.checked){
             if (cleaned !== lastEmitted){
               lastEmitted = cleaned;
               appendWords(cleaned);
               speak(cleaned);
             }
-          } else {
+                    }
+        }} else {
             lastEmitted = cleaned;
             appendWords(cleaned);
             speak(cleaned);
