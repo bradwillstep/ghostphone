@@ -847,20 +847,17 @@ async function loadModel(){
         const rawText = (result?.text || "").trim();
         const cleaned = cleanTranscript(rawText);
 
-        if (cleaned){
-          // Final guard: never show/speak model tags/captions
-          if (/(blank_audio|mus_audio|no_audio|music)/i.test(cleaned)) {
+        if (cleaned) {
+          // Final hard guard: never show/speak model tags/captions
+          if (/\b(blank_audio|mus_audio|no_audio|music)\b/i.test(cleaned)) {
             // ignore
-          } else {
-
-          if (dedupeOn.checked){
-            if (cleaned !== lastEmitted){
+          } else if (dedupeOn.checked) {
+            if (cleaned !== lastEmitted) {
               lastEmitted = cleaned;
               appendWords(cleaned);
               speak(cleaned);
             }
-                    }
-        }} else {
+          } else {
             lastEmitted = cleaned;
             appendWords(cleaned);
             speak(cleaned);
