@@ -176,6 +176,13 @@
     .muted{ font-size:12px; color: var(--green-dim); line-height:1.35; }
     .actions{ display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end; margin-top:10px; }
     .codepill{ display:inline-block; padding:2px 6px; border-radius:8px; border:1px solid var(--border); background: rgba(53,255,106,.04); }
+  
+    /* Study mode highlight */
+    #studyPanel.unlocked{
+      border-color: rgba(255,215,64,.95) !important;
+      box-shadow: 0 0 0 1px rgba(255,215,64,.35) inset, 0 0 18px rgba(255,215,64,.18);
+    }
+
   </style>
 </head>
 <body>
@@ -396,6 +403,73 @@
           A/B workflow: record baseline, then toggle settings and press Mark A / Mark B during the same environment.
           Compare shows what repeated/stabilized in each mode.
         </div>
+        
+        <div class="row" style="margin-top:10px">
+          <button id="btnMemRefresh" class="yellow">Refresh Memory Dashboard</button>
+          <button id="btnMemClear" class="yellow">Clear Memory</button>
+          <label class="toggle" title="Store repeat stats on this device (localStorage)">
+            <input id="memoryOn" type="checkbox" checked />
+            <span class="track"><span class="thumb"></span></span>
+            <span class="label">Memory ON</span>
+          </label>
+          <label class="toggle" title="Blind A/B mode hides condition labels until reveal">
+            <input id="blindOn" type="checkbox" />
+            <span class="track"><span class="thumb"></span></span>
+            <span class="label">Blind A/B</span>
+          </label>
+          <button id="btnReveal" class="yellow" disabled>Reveal</button>
+        </div>
+        
+        <details id="studyPanel" style="margin-top:10px; border-color: rgba(255,215,64,.55);">
+          <summary>Study Mode (Double-blind forced protocol)</summary>
+          <div class="warn" style="margin-top:10px">
+            <b>Warning:</b> Study mode locks all settings until the selected study time is over.
+          </div>
+
+          <div class="row" style="margin-top:10px">
+            <label class="toggle" title="Unlock study controls">
+              <input id="studyUnlock" type="checkbox" />
+              <span class="track"><span class="thumb"></span></span>
+              <span class="label">Unlock study controls</span>
+            </label>
+
+            <span class="pill">Study time
+              <select id="studyMinutes" style="margin-left:8px">
+                <option value="5">5 min</option>
+                <option value="10" selected>10 min</option>
+                <option value="15">15 min</option>
+                <option value="20">20 min</option>
+              </select>
+            </span>
+
+            <span class="pill">Block length
+              <select id="studyBlock" style="margin-left:8px">
+                <option value="30">30s</option>
+                <option value="45" selected>45s</option>
+                <option value="60">60s</option>
+              </select>
+            </span>
+
+            <button id="btnStartStudy" class="yellow" disabled>Start Study</button>
+            <button id="btnStopStudy" class="yellow" disabled>Stop Study</button>
+
+            <span class="pill">Condition: <span id="studyCond">—</span></span>
+            <span class="pill">Time left: <span id="studyLeft">—</span></span>
+          </div>
+
+          <div class="small" style="margin-top:10px">
+            <b>A (control):</b> Normal Speech (no shift).<br>
+            <b>B (experimental):</b> Scan+Shift targets 12k–18k (internal), Voting enabled (only during B).<br>
+            Output labels are hidden as <b>[SAMPLE]</b> until Reveal.
+          </div>
+        </details>
+
+        <div class="small" style="margin-top:10px">
+          <b>Memory dashboard</b> shows top repeating phrases across sessions on this device (bands + dates).
+          Blind A/B hides whether outputs are from NORMAL vs SCAN+VOTE until you press Reveal.
+        </div>
+        <textarea id="memDash" placeholder="(memory dashboard)"></textarea>
+
         <textarea id="log" placeholder="(debug log)"></textarea>
       </details>
     </div>
@@ -471,6 +545,20 @@
     const btnCompare = $("btnCompare");
     const btnExportJson = $("btnExportJson");
     const btnExportWav = $("btnExportWav");
+    const btnMemRefresh = $("btnMemRefresh");
+    const btnMemClear = $("btnMemClear");
+    const memoryOn = $("memoryOn");
+    const blindOn = $("blindOn");
+    const btnReveal = $("btnReveal");
+    const memDash = $("memDash");
+    const studyPanel = $("studyPanel");
+    const studyUnlock = $("studyUnlock");
+    const studyMinutes = $("studyMinutes");
+    const studyBlock = $("studyBlock");
+    const btnStartStudy = $("btnStartStudy");
+    const btnStopStudy = $("btnStopStudy");
+    const studyCond = $("studyCond");
+    const studyLeft = $("studyLeft");
     const btnScanToggle = $("btnScanToggle");
     const btnLoadModel2 = $("btnLoadModel2");
     const voteOn = $("voteOn");
@@ -597,6 +685,300 @@
       ab: { A: [], B: [] },
       baseline_dbfs: null,
     };
+
+    // ====== Cross-session Memory (localStorage) ======
+    const SESSION_ID = (crypto?.randomUUID ? crypto.randomUUID() : (Date.now().toString(36) + Math.random().toString(36).slice(2)));
+    const MEM_KEY = "ultra_listener_memory_v1";
+
+    function loadMemory(){
+      try{
+        const raw = localStorage.getItem(MEM_KEY);
+        if (!raw) return { phrases: {}, sessions: {} };
+        return JSON.parse(raw);
+      }catch{
+        return { phrases: {}, sessions: {} };
+      }
+    }
+    function saveMemory(mem){
+      try{ localStorage.setItem(MEM_KEY, JSON.stringify(mem)); }catch{}
+    }
+    function normPhrase(s){
+      return String(s||"").toLowerCase().replace(/[^a-z0-9\s]/g,"").replace(/\s+/g," ").trim();
+    }
+    function bandBucket(centerHz){
+      // bucket to nearest 100 Hz
+      return String(Math.round(Number(centerHz||0)/100)*100);
+    }
+    function updateMemoryForDetection(text, meta){
+      if (!memoryOn.checked) return;
+      const mem = loadMemory();
+      const key = normPhrase(text);
+      if (!key) return;
+
+      if (!mem.phrases[key]){
+        mem.phrases[key] = {
+          first_seen: Date.now(),
+          last_seen: Date.now(),
+          total: 0,
+          sessions: {},
+          bands: {},
+          last_mode: meta.mode || "unknown",
+          last_conf: meta.conf || 0,
+        };
+      }
+      const p = mem.phrases[key];
+      p.total += 1;
+      p.last_seen = Date.now();
+      p.last_mode = meta.mode || p.last_mode;
+      p.last_conf = meta.conf ?? p.last_conf;
+
+      p.sessions[SESSION_ID] = (p.sessions[SESSION_ID] || 0) + 1;
+      // record band bucket if available
+      if (meta.bandCenter){
+        const b = bandBucket(meta.bandCenter);
+        p.bands[b] = (p.bands[b] || 0) + 1;
+      }
+
+      mem.sessions[SESSION_ID] = { t: Date.now() };
+      // cap memory to avoid huge localStorage: keep top 500 by total (prune)
+      const keys = Object.keys(mem.phrases);
+      if (keys.length > 600){
+        keys.sort((a,b)=>mem.phrases[b].total - mem.phrases[a].total);
+        const keep = new Set(keys.slice(0, 500));
+        for (const k of keys.slice(500)){
+          if (!keep.has(k)) delete mem.phrases[k];
+        }
+      }
+      saveMemory(mem);
+    }
+
+    function formatDate(ts){
+      const d = new Date(ts);
+      return d.toLocaleString();
+    }
+
+    function memoryDashboard(){
+      const mem = loadMemory();
+      const entries = Object.entries(mem.phrases || {});
+      entries.sort((a,b)=> (b[1].total||0) - (a[1].total||0));
+
+      const top = entries.slice(0, 30);
+      let out = "";
+      out += "MEMORY DASHBOARD (this device)\n";
+      out += `sessions stored: ${Object.keys(mem.sessions||{}).length}\n`;
+      out += `phrases stored: ${entries.length}\n\n`;
+      out += "TOP REPEATING PHRASES:\n";
+      for (const [phrase, v] of top){
+        const sessCount = Object.keys(v.sessions||{}).length;
+        // most common band
+        let topBand = "n/a";
+        const bands = Object.entries(v.bands||{});
+        if (bands.length){
+          bands.sort((x,y)=>y[1]-x[1]);
+          topBand = `${bands[0][0]}Hz (${bands[0][1]}x)`;
+        }
+        out += `• ${v.total}x / ${sessCount} sessions  | band: ${topBand}\n`;
+        out += `  "${phrase}"\n`;
+        out += `  last: ${formatDate(v.last_seen)}  first: ${formatDate(v.first_seen)}\n`;
+      }
+      memDash.value = out;
+      memDash.scrollTop = 0;
+    }
+
+    function clearMemory(){
+      try{ localStorage.removeItem(MEM_KEY); }catch{}
+      memDash.value = "Memory cleared.\n";
+    }
+
+    // ====== Blind A/B mode ======
+    // When enabled, the app hides whether a line came from NORMAL or SCAN+VOTE.
+    // It stores hidden labels and reveals them later.
+    let blindReveal = false;
+    const blindMap = {
+      // lineId -> actualTag
+      lines: {}
+    };
+    function blindTag(actualTag){
+      if (!blindOn.checked) return actualTag;
+      // hide until reveal
+      if (blindReveal) return actualTag;
+      return "[SAMPLE]";
+    }
+    function setBlindState(on){
+      blindReveal = false;
+      blindMap.lines = {};
+      btnReveal.disabled = !on;
+      btnReveal.textContent = "Reveal";
+    }
+
+    // ====== Double-blind forced protocol (Study Mode) ======
+    let studyActive = false;
+    let studyEndAt = 0;
+    let studyTimer = null;
+    let blockTimer = null;
+    let currentCond = null; // 'A' or 'B'
+    let lockedControls = [];
+
+    function setStudyUnlocked(unlocked){
+      if (unlocked){
+        studyPanel.classList.add("unlocked");
+        btnStartStudy.disabled = false;
+      } else {
+        studyPanel.classList.remove("unlocked");
+        btnStartStudy.disabled = true;
+      }
+      // stop study if user locks it back while running
+      if (!unlocked && studyActive) stopStudy();
+    }
+
+    function lockSettings(){
+      // Lock all interactive settings (controls + mode toggles) until study ends
+      const ids = [
+        "modelSel","translateOn","modeNormal","modeShift","voiceOn","monitorOn","shiftPreset","bpCenter","bpQ",
+        "notchOn","winSec","updSec","vadOn","stableOn","dedupeOn","scanTargetsOnly","scanMinHz","scanMaxHz",
+        "voteOn","voteOnlyScan","scoreOn","btnScanToggle","btnLoadModel2","btnBaseline","btnLoadModel","btnStart","btnStop","btnHelp"
+      ];
+      lockedControls = [];
+      for (const id of ids){
+        const el = document.getElementById(id);
+        if (!el) continue;
+        lockedControls.push({ el, disabled: el.disabled });
+        el.disabled = true;
+      }
+      // Keep Stop Study enabled
+      btnStopStudy.disabled = false;
+    }
+
+    function unlockSettings(){
+      for (const item of lockedControls){
+        try{ item.el.disabled = item.disabled; }catch{}
+      }
+      lockedControls = [];
+      btnStopStudy.disabled = true;
+    }
+
+    function applyCondition(cond){
+      currentCond = cond;
+      // Hide actual condition indicator on screen (double-blind): show em dash.
+      studyCond.textContent = "HIDDEN";
+      // Internally apply: A = normal, no scan/vote. B = shift+scan-range+vote.
+      if (cond === "A"){
+        // control
+        // force internal flags via variables, not UI. We'll set a global override.
+        studyOverrides = {
+          mode: "normal",
+          vote: false,
+          scan: false,
+          bandMin: null,
+          bandMax: null
+        };
+      } else {
+        // experimental
+        const minHz = 12000;
+        const maxHz = 18000;
+        studyOverrides = {
+          mode: "shift",
+          vote: true,
+          scan: true,
+          bandMin: minHz,
+          bandMax: maxHz
+        };
+      }
+      session.events.push({ t: Date.now(), type:"study_block", cond, overrides: studyOverrides });
+    }
+
+    let studyOverrides = null;
+
+    function startRandomizedBlocks(blockSec){
+      if (blockTimer) clearInterval(blockTimer);
+      // Randomize blocks: swap condition each block in random order but roughly balanced
+      // We'll generate a simple alternation with random flips.
+      // Start with random condition
+      applyCondition(Math.random() < 0.5 ? "A" : "B");
+      blockTimer = setInterval(() => {
+        if (!studyActive) return;
+        // flip most of the time, occasionally repeat
+        const flip = Math.random() < 0.75;
+        let next = currentCond;
+        if (flip) next = (currentCond === "A") ? "B" : "A";
+        applyCondition(next);
+      }, blockSec * 1000);
+    }
+
+    function startStudy(){
+      if (!audioCtx || !rb){
+        showOverlay({ title:"Start mic first", subtitle:"Study mode requires microphone running and model loaded." });
+        return;
+      }
+      if (!modelLoaded){
+        showOverlay({ title:"Load model first", subtitle:"Click Load AI Model before starting study." });
+        return;
+      }
+      // Force blind mode ON, and prevent reveal until study ends
+      blindOn.checked = true;
+      setBlindState(true);
+      blindReveal = false;
+      btnReveal.disabled = true;
+
+      studyActive = true;
+      const mins = Number(studyMinutes.value || 10);
+      const blockSec = Number(studyBlock.value || 45);
+      studyEndAt = Date.now() + mins * 60 * 1000;
+
+      // Lock everything
+      lockSettings();
+
+      // Start blocks
+      startRandomizedBlocks(blockSec);
+
+      // Tick timer
+      if (studyTimer) clearInterval(studyTimer);
+      studyTimer = setInterval(() => {
+        const left = Math.max(0, studyEndAt - Date.now());
+        const s = Math.ceil(left/1000);
+        const mm = Math.floor(s/60);
+        const ss = String(s % 60).padStart(2,"0");
+        studyLeft.textContent = `${mm}:${ss}`;
+        if (left <= 0){
+          stopStudy(true);
+        }
+      }, 500);
+
+      btnStartStudy.disabled = true;
+      btnStopStudy.disabled = false;
+      setStatus("study running");
+      session.events.push({ t: Date.now(), type:"study_start", minutes: mins, blockSec });
+      logLine(`[study] started: ${mins} min, blocks ${blockSec}s. Labels hidden until end.`);
+    }
+
+    function stopStudy(auto=false){
+      if (!studyActive) return;
+      studyActive = false;
+
+      if (studyTimer) { clearInterval(studyTimer); studyTimer = null; }
+      if (blockTimer) { clearInterval(blockTimer); blockTimer = null; }
+
+      unlockSettings();
+
+      // Allow reveal now
+      btnReveal.disabled = false;
+      btnReveal.textContent = "Reveal";
+
+      studyCond.textContent = "—";
+      studyLeft.textContent = "—";
+      studyOverrides = null;
+
+      btnStartStudy.disabled = !studyUnlock.checked;
+      btnStopStudy.disabled = true;
+
+      setStatus("listening");
+      session.events.push({ t: Date.now(), type:"study_stop", auto });
+      logLine(auto ? "[study] finished. You can now press Reveal." : "[study] stopped early. You can now press Reveal.");
+      showOverlay({ title:"Study complete", subtitle:"Study mode ended. Press Reveal to see which condition produced which lines." });
+    }
+
+
+
     let currentMark = null; // 'A' | 'B' | null
 
     // spectrogram buffer (downsampled bins)
@@ -1212,7 +1594,8 @@
           // leave pcm as-is (notch is mostly for listening and display)
         }
 
-        if (modeShift.checked){
+        const effectiveModeShift = (studyActive && studyOverrides) ? (studyOverrides.mode === "shift") : modeShift.checked;
+        if (effectiveModeShift){
           // isolate band then shift
           pcm = applyBandpass(pcm, sr, Number(bpCenter.value), Number(bpQ.value));
           pcm = applyHeterodyne(pcm, sr, Number(shiftPreset.value));
@@ -1240,7 +1623,10 @@
 
         // Optional multi-model voting (Android warning: slower)
         let cleaned2 = "";
-        const useVoting = voteOn.checked && (!voteOnlyScan.checked || scanOnState);
+        const effectiveScanOn = (studyActive && studyOverrides) ? !!studyOverrides.scan : scanOnState;
+        const effectiveVoting = (studyActive && studyOverrides) ? !!studyOverrides.vote : voteOn.checked;
+        const effectiveVoteOnlyScan = (studyActive && studyOverrides) ? true : voteOnlyScan.checked;
+        const useVoting = effectiveVoting && (!effectiveVoteOnlyScan || effectiveScanOn);
         if (useVoting) {
           if (!model2Loaded || !asr2) {
             // If voting is enabled but 2nd model not loaded, disable voting automatically
@@ -1297,7 +1683,7 @@
         lastEmitted = cleaned;
 
         // If scanning, record hit with current band center and scores
-        if (scanOnState && scoreOn.checked && audioCtx) {
+        if (effectiveScanOn && scoreOn.checked && audioCtx) {
           const ent = spectralEntropy(freqData);
           const fsc = formantScoreApprox(freqData, audioCtx.sampleRate);
           const composite = (0.55*fsc + 0.45*(1-ent)); // prefer formant-y and low entropy
@@ -1308,7 +1694,7 @@
 
         // Build label + confidence badge
         let tag = "[NORMAL]";
-        if (scanOnState && voteOn.checked && (!voteOnlyScan.checked || scanOnState)) tag = "[SCAN+VOTE]";
+        if (effectiveScanOn && useVoting) tag = "[SCAN+VOTE]";
         // Scores
         let ent = 0.0, fsc = 0.0;
         if (scoreOn.checked && audioCtx && freqData) {
@@ -1322,8 +1708,13 @@
         }
         const cb = confidenceBadge(ent, fsc, agree);
         const badge = `[CONF:${cb.label} ${cb.conf.toFixed(2)}]`;
-        const line = `${tag} ${badge} ${cleaned}`;
+        const lineId = (Date.now().toString(36) + Math.random().toString(36).slice(2,8));
+        const displayTag = blindTag(tag);
+        blindMap.lines[lineId] = { actual: tag, badge, text: cleaned, t: Date.now() };
+        const line = `${displayTag} ${badge} ${cleaned}`;
         appendWords(line);
+        // Update cross-session memory
+        updateMemoryForDetection(cleaned, { mode: tag, bandCenter: Number(bpCenter.value||0), conf: cb.conf });
         if (voiceOn.checked){
           if ("speechSynthesis" in window){
             const u = new SpeechSynthesisUtterance(cleaned);
@@ -1683,6 +2074,52 @@
     btnExportJson.addEventListener("click", exportJson);
     btnExportWav.addEventListener("click", exportWav);
 
+    // Memory + blind UI
+    btnMemRefresh.addEventListener("click", memoryDashboard);
+    btnMemClear.addEventListener("click", clearMemory);
+
+    blindOn.addEventListener("change", () => {
+      setBlindState(blindOn.checked);
+      if (blindOn.checked){
+        logLine("[blind] ON — labels hidden until Reveal.");
+      } else {
+        logLine("[blind] OFF.");
+      }
+    });
+
+    
+    // Study mode UI
+    studyUnlock.addEventListener("change", () => {
+      setStudyUnlocked(studyUnlock.checked);
+    });
+
+    btnStartStudy.addEventListener("click", () => {
+      if (!studyUnlock.checked) return;
+      startStudy();
+    });
+
+    btnStopStudy.addEventListener("click", () => {
+      stopStudy(false);
+    });
+
+btnReveal.addEventListener("click", () => {
+      if (!blindOn.checked) return;
+      blindReveal = true;
+      btnReveal.textContent = "Revealed";
+      btnReveal.disabled = true;
+
+      // Print a reveal report in the log
+      logLine("\n=== BLIND REVEAL ===");
+      const items = Object.values(blindMap.lines).sort((a,b)=>a.t-b.t);
+      for (const it of items.slice(-40)){
+        logLine(`${it.actual} ${it.badge} ${it.text}`);
+      }
+      logLine("====================\n");
+      showOverlay({ title:"Revealed", subtitle:"Blind labels are now revealed in the Debug Log." });
+    });
+
+
+
     btnLoadModel2.addEventListener("click", loadSecondModel);
 
     btnScanToggle.addEventListener("click", () => {
@@ -1843,6 +2280,10 @@
 
     setStatus("idle");
     environmentChecks();
+    setBlindState(false);
+    setStudyUnlocked(false);
+
+    memoryDashboard();
     setupPwa();
 
     // Warm hint for Android Chrome
