@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Ultra Listener — Android Live Translate (Worker Stable)</title>
+  <title>Ultra Listener — Android Worker Text-Only (Fixed)</title>
   <style>
     :root{
       color-scheme: dark;
@@ -48,10 +48,8 @@
       font-size:12px; white-space:nowrap;
     }
     .small{ font-size:12px; color:var(--green-dim); line-height:1.35; }
-    canvas{ width:100%; border-radius:10px; border:1px solid var(--border); background:#000; }
-    
     textarea{
-      width:100%; min-height: 290px; resize: vertical;
+      width:100%; min-height: 300px; resize: vertical;
       border-radius:10px; border:1px solid var(--border);
       background:#000; color: var(--green);
       padding: 12px;
@@ -60,7 +58,6 @@
       box-shadow: 0 0 0 1px rgba(53,255,106,.08) inset;
     }
     textarea::placeholder{ color: rgba(53,255,106,.35); }
-    input[type="range"]{ width: min(520px, 100%); accent-color: #35ff6a; }
     select{
       background:#000; color: var(--green);
       border:1px solid var(--border);
@@ -68,6 +65,8 @@
       padding: 8px 10px;
       font-family: var(--font);
     }
+    input[type="range"]{ width: min(520px, 100%); accent-color: #35ff6a; }
+
     .statusstrip{
       display:flex; gap:10px; flex-wrap:wrap; align-items:center;
       margin-top:10px; padding: 8px 10px;
@@ -90,6 +89,7 @@
     .kv{ display:inline-flex; align-items:center; gap:8px; }
     .key{ color: rgba(53,255,106,.9); font-weight:800; }
     .val{ color: var(--green-dim); }
+
     .toggle{
       display:inline-flex; align-items:center; gap:10px;
       border:1px solid var(--border);
@@ -124,16 +124,6 @@
     .seg label:last-child{ border-right:0; }
     .seg input:checked + label{ color: var(--bg); background: rgba(53,255,106,.85); }
 
-    .warn{
-      border: 1px solid rgba(255,215,64,.55);
-      background: rgba(255,215,64,.12);
-      border-radius: 10px;
-      padding: 10px;
-      color: rgba(255,231,140,.95);
-      font-size: 12px;
-      line-height: 1.35;
-    }
-
     .overlay{ position:fixed; inset:0; display:none; align-items:center; justify-content:center; background: rgba(0,0,0,.75); padding:14px; z-index:50; }
     .overlay.show{ display:flex; }
     .modal{
@@ -143,12 +133,12 @@
     }
     .modal h2{ margin:0 0 8px; font-size: 14px; }
     .modal .sub{ margin:0 0 10px; font-size:12px; color: var(--green-dim); line-height:1.35; }
-    .modal .err{ border:1px solid rgba(255,77,77,.55); background: rgba(255,77,77,.08); border-radius:10px; padding:10px; color: rgba(255,150,150,.95); font-size:12px; }
+    .modal .err{ border:1px solid rgba(255,77,77,.55); background: rgba(255,77,77,.08); border-radius:10px; padding:10px; color: rgba(255,150,150,.95); font-size:12px; white-space: pre-wrap; }
     .actions{ display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end; margin-top:10px; }
   </style>
 </head>
 <body>
-  <h1>ULTRA LISTENER // WORKER STABLE LIVE TRANSLATE</h1>
+  <h1>ULTRA LISTENER // WORKER TEXT-ONLY (FIXED)</h1>
 
   <div class="grid">
     <div class="card">
@@ -159,7 +149,7 @@
             <option value="Xenova/whisper-tiny" selected>whisper-tiny (multilingual) — recommended</option>
             <option value="Xenova/whisper-tiny.en">whisper-tiny.en (English-only)</option>
           </select>
-          <div class="small">This build runs ASR in a Worker to prevent UI stutter.</div>
+          <div class="small">This build runs Whisper in a Worker to keep UI responsive.</div>
         </div>
 
         <div class="col" style="flex: 1 1 320px">
@@ -184,13 +174,8 @@
         <span class="kv"><span id="dotModel" class="dot"></span><span class="key">MODEL</span><span id="modelState" class="val">NOT LOADED</span></span>
         <span class="kv"><span id="dotMic" class="dot"></span><span class="key">MIC</span><span id="micState" class="val">OFF</span></span>
         <span class="kv"><span class="key">LEVEL</span><span id="lvlDb" class="val">-inf dBFS</span></span>
-<span class="kv"><span class="key">ASR</span><span id="asrMs" class="val">—</span></span>
+        <span class="kv"><span class="key">ASR</span><span id="asrMs" class="val">—</span></span>
         <span class="kv"><span class="key">ADAPT</span><span id="adapt" class="val">—</span></span>
-      </div>
-
-      <div class="warn" style="margin-top:10px">
-        <b>Monitoring audio:</b> Use headphones. Toggle between <b>Voice-isolated</b> and <b>All sounds</b>.
-        Translation runs continuously on the raw mic (windows), but the heavy work is off the UI thread.
       </div>
 
       <div class="row" style="margin-top:10px">
@@ -201,11 +186,11 @@
             <span class="track"><span class="thumb"></span></span>
             <span class="label">Always-on</span>
           </label>
-          <div class="small">Always-on still skips truly silent audio.</div>
+          <div class="small">Always-on still skips true silence to save battery.</div>
         </div>
 
         <div class="col" style="flex:1 1 360px">
-          <div class="small"><b>MONITOR</b></div>
+          <div class="small"><b>MONITOR</b> (headphones)</div>
           <label class="toggle">
             <input id="monitorOn" type="checkbox" />
             <span class="track"><span class="thumb"></span></span>
@@ -244,15 +229,19 @@
         <div class="col" style="flex:1 1 340px">
           <div class="small"><b>UPDATE</b> sec: <span id="updSecLabel">1.0</span></div>
           <input id="updSec" type="range" min="0.5" max="3" step="0.5" value="1.0" />
-          <div class="small">Adaptive mode may raise this if ASR is slower than UPDATE.</div>
         </div>
       </div>
+
+      <div class="small" style="margin-top:10px">
+        If buttons don’t respond: you are likely viewing an old cached file. Hard refresh or open with <b>?v=123</b>.
       </div>
-<div class="card">
+    </div>
+
+    <div class="card">
       <div class="row" style="justify-content: space-between">
         <div>
           <div class="small"><b>OUTPUT</b></div>
-          <div class="small">Appends translated text (or transcript if translate off).</div>
+          <div class="small">Translated text (or transcript) appended continuously.</div>
         </div>
         <div class="row">
           <button id="btnCopy">Copy</button>
@@ -260,15 +249,12 @@
         </div>
       </div>
       <textarea id="out" placeholder="(live output will appear here)"></textarea>
-      <div class="small" style="margin-top:10px">
-        Recommended S23 defaults: WINDOW 2.0s, UPDATE 1.0s. If ASR time is high, it will auto-adapt (raise UPDATE).
-      </div>
     </div>
   </div>
 
   <div id="overlay" class="overlay" role="dialog" aria-modal="true">
     <div class="modal">
-      <h2 id="ovTitle">Help</h2>
+      <h2 id="ovTitle">Message</h2>
       <p class="sub" id="ovSub"></p>
       <div id="ovErr" class="err" style="display:none"></div>
       <div class="actions">
@@ -278,6 +264,26 @@
   </div>
 
   <script type="module">
+    // Crash-to-overlay so you always SEE why buttons fail.
+    window.addEventListener("error", (e) => {
+      const msg = (e?.message || "Unknown error") + "\\n" + (e?.filename || "") + ":" + (e?.lineno || "");
+      document.getElementById("ovTitle").textContent = "Script error";
+      document.getElementById("ovSub").textContent = "The app hit a JS error. This is why buttons won't work.";
+      const box = document.getElementById("ovErr");
+      box.style.display = "block";
+      box.textContent = msg;
+      document.getElementById("overlay").classList.add("show");
+    });
+    window.addEventListener("unhandledrejection", (e) => {
+      const msg = String(e?.reason?.message || e?.reason || "Unhandled rejection");
+      document.getElementById("ovTitle").textContent = "Unhandled promise rejection";
+      document.getElementById("ovSub").textContent = "The app hit an async error.";
+      const box = document.getElementById("ovErr");
+      box.style.display = "block";
+      box.textContent = msg;
+      document.getElementById("overlay").classList.add("show");
+    });
+
     const $ = (id) => document.getElementById(id);
 
     const modelSel = $("modelSel");
@@ -311,8 +317,7 @@
     const winSecLabel = $("winSecLabel");
     const updSec = $("updSec");
     const updSecLabel = $("updSecLabel");
-    const srEl = $("sr");
-    const nyEl = $("ny");
+
     const out = $("out");
 
     const overlay = $("overlay");
@@ -325,10 +330,16 @@
     function showOverlay(title, sub, err=null){
       ovTitle.textContent = title;
       ovSub.textContent = sub || "";
-      if (err){ ovErr.style.display="block"; ovErr.textContent = err; }
-      else { ovErr.style.display="none"; ovErr.textContent=""; }
+      if (err){
+        ovErr.style.display = "block";
+        ovErr.textContent = err;
+      } else {
+        ovErr.style.display = "none";
+        ovErr.textContent = "";
+      }
       overlay.classList.add("show");
     }
+
     function setStatus(s){ statusEl.textContent = s; }
 
     function appendWords(s){
@@ -339,7 +350,6 @@
 
     // ===== Audio capture =====
     let audioCtx=null, stream=null, source=null;
-    let analyser=null;
     let captureNode=null;
 
     // monitor nodes
@@ -392,10 +402,6 @@
       if (/\\b(blank_audio|mus_audio|no_audio|music)\\b/i.test(t)) return "";
       return t;
     }
-      const rms=Math.sqrt(sumSq/arr.length);
-      if (rms<=1e-9) return "-inf";
-      return (20*Math.log10(rms)).toFixed(1);
-    }
 
     async function ensureCaptureWorklet(){
       const code = `
@@ -414,7 +420,7 @@
 
     function requireMultilingualForTranslate(){
       if (translateOn.checked && String(modelSel.value).includes(".en")){
-        showOverlay("Translation needs multilingual model", "Switch Whisper model to whisper-tiny (multilingual).");
+        showOverlay("Translation needs multilingual model", "Switch model to whisper-tiny (multilingual).");
         translateOn.checked = false;
         return false;
       }
@@ -436,8 +442,6 @@
         env.useBrowserCache = true;
 
         let asr = null;
-        let loaded = false;
-        let loadedId = null;
 
         function cleanTranscript(raw){
           if (!raw) return "";
@@ -455,28 +459,23 @@
         self.onmessage = async (ev) => {
           const msg = ev.data || {};
           if (msg.type === "load"){
-            const { modelId, device } = msg;
             try{
-              asr = await pipeline("automatic-speech-recognition", modelId, { device });
-              loaded = true;
-              loadedId = modelId;
-              self.postMessage({ type:"loaded", ok:true, modelId });
+              asr = await pipeline("automatic-speech-recognition", msg.modelId, { device: msg.device || "wasm" });
+              self.postMessage({ type:"loaded", ok:true, modelId: msg.modelId });
             } catch (e){
               self.postMessage({ type:"loaded", ok:false, error: String(e?.message || e) });
             }
             return;
           }
           if (msg.type === "run"){
-            if (!loaded || !asr){
+            if (!asr){
               self.postMessage({ type:"result", ok:false, error:"model_not_loaded" });
               return;
             }
             const t0 = performance.now();
             try{
               const pcm = new Float32Array(msg.pcm);
-              const windowSec = msg.windowSec;
-              const task = msg.task;
-              const res = await asr(pcm, { chunk_length_s: windowSec, stride_length_s: 0.2, return_timestamps:false, task });
+              const res = await asr(pcm, { chunk_length_s: msg.windowSec, stride_length_s: 0.2, return_timestamps:false, task: msg.task });
               const text = cleanTranscript((res?.text || "").trim());
               const dt = performance.now() - t0;
               self.postMessage({ type:"result", ok:true, text, ms: dt });
@@ -488,7 +487,6 @@
         };
       `;
       const url = URL.createObjectURL(new Blob([workerCode], { type:"text/javascript" }));
-      // module worker to allow ESM import
       return new Worker(url, { type: "module" });
     }
 
@@ -501,12 +499,7 @@
       modelState.textContent = "LOADING…";
       setStatus("loading model…");
 
-      // create worker
       if (!worker) worker = makeWorker();
-
-      // Android stability: use wasm
-      const modelId = modelSel.value;
-      workerBusy = true;
 
       worker.onmessage = (ev) => {
         const msg = ev.data || {};
@@ -516,6 +509,7 @@
             modelLoaded = true;
             loadedModelId = msg.modelId;
             modelSel.disabled = true;
+
             dotModel.classList.remove("warn");
             dotModel.classList.add("on");
             modelState.textContent = "READY";
@@ -525,7 +519,7 @@
             dotModel.classList.remove("warn");
             modelState.textContent = "ERROR";
             setStatus("model load error");
-            showOverlay("Model load failed", "Could not load the AI model in worker.", msg.error || "unknown");
+            showOverlay("Model load failed", "Worker could not load the model.", msg.error || "unknown");
           }
         }
         if (msg.type === "result"){
@@ -534,10 +528,10 @@
             lastAsrDuration = msg.ms;
             asrMs.textContent = msg.ms.toFixed(0) + "ms";
           }
-          // Adapt update if needed (keep free and stable)
+
           if (lastAsrDuration > (Number(updSec.value) * 1000) * 0.85){
             adaptiveMinUpdate = Math.max(adaptiveMinUpdate, Math.min(3.0, (lastAsrDuration/1000) + 0.3));
-            adapt.textContent = "raised to " + adaptiveMinUpdate.toFixed(1) + "s";
+            adapt.textContent = "raised " + adaptiveMinUpdate.toFixed(1) + "s";
           } else if (adaptiveMinUpdate > 1.0 && lastAsrDuration < 700){
             adaptiveMinUpdate = Math.max(1.0, adaptiveMinUpdate - 0.1);
             adapt.textContent = "relax " + adaptiveMinUpdate.toFixed(1) + "s";
@@ -550,9 +544,10 @@
         }
       };
 
-      worker.postMessage({ type:"load", modelId, device:"wasm" });
+      worker.postMessage({ type:"load", modelId: modelSel.value, device:"wasm" });
     }
 
+    // ===== Monitoring =====
     function updateMonitorLock(){
       const unlocked = monitorOn.checked && hpConfirm.checked;
       monVol.disabled = !unlocked;
@@ -594,6 +589,7 @@
       buildMonitorGraph();
     }
 
+    // ===== Mic =====
     async function startMic(){
       if (!navigator.mediaDevices?.getUserMedia){
         showOverlay("Mic not supported", "This browser doesn't support getUserMedia().");
@@ -618,8 +614,6 @@
       }
 
       audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      srEl.textContent = audioCtx.sampleRate.toFixed(0);
-      nyEl.textContent = (audioCtx.sampleRate/2).toFixed(0);
       rbInit(audioCtx.sampleRate);
 
       source = audioCtx.createMediaStreamSource(stream);
@@ -638,26 +632,27 @@
         captureNode = sp;
       }
 
+      // Build monitor graph (only outputs audio if monitor+headphones+vol > 0)
       buildMonitorGraph();
 
       btnStop.disabled = false;
-      btnStart.disabled = true;
       dotMic.classList.add("on");
       micState.textContent = "LIVE";
       setStatus("listening");
 
       startInferenceLoop();
       startMeter();
-      
     }
 
     function stopAll(){
       stopInferenceLoop();
+      stopMeter();
+
       try{ captureNode?.disconnect(); }catch{}
       captureNode=null;
 
       try{ source?.disconnect(); }catch{}
-      source=null; analyser=null;
+      source=null;
 
       try{ monitorGain?.disconnect(); }catch{}
       try{ speechBand?.disconnect(); }catch{}
@@ -678,16 +673,9 @@
       dotMic.classList.remove("on");
       micState.textContent = "OFF";
       setStatus("stopped");
-      stopMeter();
     }
 
-    let inferTimer=null;
-    function stopInferenceLoop(){
-      if (inferTimer){ clearTimeout(inferTimer); inferTimer=null; }
-      workerBusy = false;
-    }
-    
-    // ===== Lightweight level meter (no canvas) =====
+    // ===== Text-only meter =====
     let meterTimer = null;
     function startMeter(){
       stopMeter();
@@ -695,19 +683,21 @@
         if (!audioCtx || !rb || rbFilled < Math.floor(audioCtx.sampleRate*0.2)) return;
         const pcm = rbGetLast(0.2, audioCtx.sampleRate);
         const m = maxAbs(pcm);
-        // approximate dBFS from max amplitude
         const db = (m <= 1e-9) ? "-inf" : (20*Math.log10(m)).toFixed(1);
         lvlDb.textContent = db + " dBFS";
-        let dbNum = (db === "-inf") ? -99 : Number(db);
-        if (!Number.isFinite(dbNum)) dbNum = -99;
-        const pct = Math.max(0, Math.min(100, ((dbNum + 60) / 50) * 100));
-}, 250);
+      }, 250);
     }
     function stopMeter(){
       if (meterTimer){ clearInterval(meterTimer); meterTimer = null; }
     }
 
-function startInferenceLoop(){
+    // ===== Inference scheduler =====
+    let inferTimer=null;
+    function stopInferenceLoop(){
+      if (inferTimer){ clearTimeout(inferTimer); inferTimer=null; }
+      workerBusy = false;
+    }
+    function startInferenceLoop(){
       stopInferenceLoop();
       const tick = async () => {
         await runInferenceTick();
@@ -729,14 +719,12 @@ function startInferenceLoop(){
 
       const pcm = rbGetLast(windowSec, sr);
 
-      // silence guard (keeps "monitor all voices" but avoids wasting cycles)
       const m = maxAbs(pcm);
       if (m < (alwaysOn.checked ? 0.0009 : 0.0013)) return;
 
       workerBusy = true;
       setStatus("transcribing…");
 
-      // Transfer PCM buffer to worker (zero-copy)
       const pcmBuf = pcm.buffer;
       try{
         worker.postMessage({
@@ -749,20 +737,16 @@ function startInferenceLoop(){
         workerBusy = false;
       }
     }
-      }
 
-      
-    }
-
-    // Wiring
+    // ===== Wiring =====
     btnLoadModel.addEventListener("click", loadModel);
     btnStart.addEventListener("click", startMic);
     btnStop.addEventListener("click", stopAll);
 
     btnHelp.addEventListener("click", () => {
       showOverlay(
-        "Worker Stable Help (S23)",
-        "This build moves Whisper inference to a Worker to prevent UI stutter. If it still lags: raise UPDATE to 1.5–2.0s or WINDOW to 3.0s. Monitoring requires headphones confirm.",
+        "Help",
+        "If nothing appears:\n1) Load AI Model (MODEL should be READY)\n2) Start Mic (MIC LIVE)\n3) Make sure you're on GitHub Pages HTTPS\n\nIf it lags: raise UPDATE to 1.5–2.0s or WINDOW to 3.0s.\nMonitoring needs headphones confirm.",
         null
       );
     });
@@ -774,22 +758,17 @@ function startInferenceLoop(){
     btnClear.addEventListener("click", () => { out.value=""; });
 
     translateOn.addEventListener("change", () => { requireMultilingualForTranslate(); });
-
     winSec.addEventListener("input", () => { winSecLabel.textContent = Number(winSec.value).toFixed(1); });
     updSec.addEventListener("input", () => { updSecLabel.textContent = Number(updSec.value).toFixed(1); adaptiveMinUpdate = Number(updSec.value); adapt.textContent = "manual"; });
 
-    monitorOn.addEventListener("change", () => { updateMonitorLock(); });
-    hpConfirm.addEventListener("change", () => { updateMonitorLock(); });
-
+    monitorOn.addEventListener("change", updateMonitorLock);
+    hpConfirm.addEventListener("change", updateMonitorLock);
     monVol.addEventListener("input", () => {
       monVolLabel.textContent = Number(monVol.value).toFixed(2);
       if (monitorGain) monitorGain.gain.value = (monitorOn.checked && hpConfirm.checked) ? Number(monVol.value) : 0;
     });
-
     listenVoice.addEventListener("change", () => { if (audioCtx) rebuildMonitor(); });
     listenAll.addEventListener("change", () => { if (audioCtx) rebuildMonitor(); });
-
-    alwaysOn.addEventListener("change", () => { /* keep silence guard */ });
 
     modelSel.addEventListener("change", () => {
       if (modelLoaded && loadedModelId){
