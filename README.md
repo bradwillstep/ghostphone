@@ -49,7 +49,7 @@
     }
     .small{ font-size:12px; color:var(--green-dim); line-height:1.35; }
     canvas{ width:100%; border-radius:10px; border:1px solid var(--border); background:#000; }
-    #spec{ height:150px; }
+    
     textarea{
       width:100%; min-height: 290px; resize: vertical;
       border-radius:10px; border:1px solid var(--border);
@@ -90,9 +90,7 @@
     .kv{ display:inline-flex; align-items:center; gap:8px; }
     .key{ color: rgba(53,255,106,.9); font-weight:800; }
     .val{ color: var(--green-dim); }
-    .vu{ width: 130px; height: 10px; border-radius:999px; border:1px solid rgba(53,255,106,.25); background: rgba(0,0,0,.6); overflow:hidden; }
-    .vu > div{ height:100%; width:0%; background: rgba(53,255,106,.85); box-shadow:0 0 10px rgba(53,255,106,.25); transition: width .08s linear; }
-
+    
     .toggle{
       display:inline-flex; align-items:center; gap:10px;
       border:1px solid var(--border);
@@ -187,7 +185,7 @@
         <span class="kv"><span id="dotModel" class="dot"></span><span class="key">MODEL</span><span id="modelState" class="val">NOT LOADED</span></span>
         <span class="kv"><span id="dotMic" class="dot"></span><span class="key">MIC</span><span id="micState" class="val">OFF</span></span>
         <span class="kv"><span class="key">LEVEL</span><span id="lvlDb" class="val">-inf dBFS</span></span>
-        <span class="kv"><span class="key">VU</span><span class="vu"><div id="vuFill"></div></span></span>
+        
         <span class="kv"><span class="key">ASR</span><span id="asrMs" class="val">—</span></span>
         <span class="kv"><span class="key">ADAPT</span><span id="adapt" class="val">—</span></span>
       </div>
@@ -251,18 +249,8 @@
           <div class="small">Adaptive mode may raise this if ASR is slower than UPDATE.</div>
         </div>
       </div>
-
-      <div style="margin-top:10px">
-        <canvas id="spec" width="1200" height="260"></canvas>
-        <div class="row small" style="margin-top:8px">
-          <span class="pill">sampleRate: <span id="sr">-</span> Hz</span>
-          <span class="pill">nyquist: <span id="ny">-</span> Hz</span>
-          <span class="pill">peak: <span id="pk">-</span> Hz</span>
-        </div>
       </div>
-    </div>
-
-    <div class="card">
+<div class="card">
       <div class="row" style="justify-content: space-between">
         <div>
           <div class="small"><b>OUTPUT</b></div>
@@ -309,7 +297,7 @@
     const modelState = $("modelState");
     const micState = $("micState");
     const lvlDb = $("lvlDb");
-    const vuFill = $("vuFill");
+    
     const asrMs = $("asrMs");
     const adapt = $("adapt");
 
@@ -326,12 +314,8 @@
     const winSecLabel = $("winSecLabel");
     const updSec = $("updSec");
     const updSecLabel = $("updSecLabel");
-
     const srEl = $("sr");
     const nyEl = $("ny");
-    const pkEl = $("pk");
-    const spec = $("spec");
-    const specCtx = spec.getContext("2d");
     const out = $("out");
 
     const overlay = $("overlay");
@@ -358,7 +342,7 @@
 
     // ===== Audio capture =====
     let audioCtx=null, stream=null, source=null;
-    let analyser=null, freqData=null, timeData=null;
+    let analyser=null;
     let captureNode=null;
 
     // monitor nodes
@@ -411,13 +395,6 @@
       if (/\\b(blank_audio|mus_audio|no_audio|music)\\b/i.test(t)) return "";
       return t;
     }
-
-    function dbfsFromTimeDomainByte(arr){
-      let sumSq=0;
-      for (let i=0;i<arr.length;i++){
-        const v=(arr[i]-128)/128;
-        sumSq += v*v;
-      }
       const rms=Math.sqrt(sumSq/arr.length);
       if (rms<=1e-9) return "-inf";
       return (20*Math.log10(rms)).toFixed(1);
@@ -616,7 +593,6 @@
     function rebuildMonitor(){
       if (!audioCtx || !source) return;
       try{ source.disconnect(); }catch{}
-      source.connect(analyser);
       if (captureNode) source.connect(captureNode);
       buildMonitorGraph();
     }
@@ -651,13 +627,6 @@
 
       source = audioCtx.createMediaStreamSource(stream);
 
-      analyser = audioCtx.createAnalyser();
-      analyser.fftSize = 1024;
-      analyser.smoothingTimeConstant = 0.65;
-      freqData = new Uint8Array(analyser.frequencyBinCount);
-      timeData = new Uint8Array(analyser.fftSize);
-      source.connect(analyser);
-
       if (audioCtx.audioWorklet){
         await ensureCaptureWorklet();
         captureNode = new AudioWorkletNode(audioCtx, "capture-processor", { numberOfInputs:1, numberOfOutputs:0, channelCount:1 });
@@ -681,7 +650,8 @@
       setStatus("listening");
 
       startInferenceLoop();
-      requestAnimationFrame(drawLoop);
+      startMeter();
+      
     }
 
     function stopAll(){
@@ -711,6 +681,7 @@
       dotMic.classList.remove("on");
       micState.textContent = "OFF";
       setStatus("stopped");
+      stopMeter();
     }
 
     let inferTimer=null;
@@ -718,7 +689,29 @@
       if (inferTimer){ clearTimeout(inferTimer); inferTimer=null; }
       workerBusy = false;
     }
-    function startInferenceLoop(){
+    
+    // ===== Lightweight level meter (no canvas) =====
+    let meterTimer = null;
+    function startMeter(){
+      stopMeter();
+      meterTimer = setInterval(() => {
+        if (!audioCtx || !rb || rbFilled < Math.floor(audioCtx.sampleRate*0.2)) return;
+        const pcm = rbGetLast(0.2, audioCtx.sampleRate);
+        const m = maxAbs(pcm);
+        // approximate dBFS from max amplitude
+        const db = (m <= 1e-9) ? "-inf" : (20*Math.log10(m)).toFixed(1);
+        lvlDb.textContent = db + " dBFS";
+        let dbNum = (db === "-inf") ? -99 : Number(db);
+        if (!Number.isFinite(dbNum)) dbNum = -99;
+        const pct = Math.max(0, Math.min(100, ((dbNum + 60) / 50) * 100));
+        
+      }, 250);
+    }
+    function stopMeter(){
+      if (meterTimer){ clearInterval(meterTimer); meterTimer = null; }
+    }
+
+function startInferenceLoop(){
       stopInferenceLoop();
       const tick = async () => {
         await runInferenceTick();
@@ -760,44 +753,9 @@
         workerBusy = false;
       }
     }
-
-    function drawLoop(){
-      if (!analyser || !audioCtx) return;
-
-      analyser.getByteFrequencyData(freqData);
-      analyser.getByteTimeDomainData(timeData);
-
-      const db = dbfsFromTimeDomainByte(timeData);
-      lvlDb.textContent = db + " dBFS";
-      let dbNum = (db === "-inf") ? -99 : Number(db);
-      if (!Number.isFinite(dbNum)) dbNum = -99;
-      const pct = Math.max(0, Math.min(100, ((dbNum + 60) / 50) * 100));
-      vuFill.style.width = pct.toFixed(0) + "%";
-
-      let peakIdx=0;
-      for (let i=1;i<freqData.length;i++) if (freqData[i] > freqData[peakIdx]) peakIdx=i;
-      const peakHz = (peakIdx/freqData.length) * (audioCtx.sampleRate/2);
-      pkEl.textContent = peakHz.toFixed(0);
-
-      // throttle drawing to reduce jank
-      if ((performance.now() % 2) < 1){
-        specCtx.clearRect(0,0,spec.width,spec.height);
-        const w=spec.width, h=spec.height;
-        const n=freqData.length;
-        const step=2;
-        const bars=Math.floor(n/step);
-        const barW=w/bars;
-        let bi=0;
-        for (let i=0;i<n;i+=step){
-          const v = Math.max(freqData[i], freqData[i+1]||0)/255;
-          const barH=v*(h-12);
-          specCtx.fillStyle = `rgba(53,255,106,${0.08+v*0.85})`;
-          specCtx.fillRect(bi*barW, h-barH, barW, barH);
-          bi++;
-        }
       }
 
-      requestAnimationFrame(drawLoop);
+      
     }
 
     // Wiring
