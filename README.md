@@ -143,6 +143,11 @@
     import { pipeline, env } from "https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2";
 
     const el = (id) => document.getElementById(id);
+    // Cached label refs (avoid null crashes)
+    const winSecLabelEl = el("winSecLabel");
+    const updSecLabelEl = el("updSecLabel");
+    const sensLabelEl = el("sensLabel");
+
     const out = el("out");
 
     const btnLoadModel = el("btnLoadModel");
@@ -282,7 +287,7 @@
       if (!audioCtx || !rb || !modelLoaded || !asr) return;
       if (busy) return;
 
-      let windowSec = Number(el("winSecLabel").textContent || "2");
+      let windowSec = Number((winSecLabelEl && winSecLabelEl.textContent) ? winSecLabelEl.textContent : winSec.value);
       // derive from mode + slider values
       windowSec = modeB.checked ? Math.max(Number(windowSec), 3.0) : Math.min(Number(windowSec), 2.0);
       const sr = audioCtx.sampleRate;
@@ -434,9 +439,9 @@
     btnCopy.addEventListener("click", async () => {
       try{ await navigator.clipboard.writeText(out.value||""); }catch(e){ showError(e); }
     });
-    sens.addEventListener("input", ()=> sensLabel.textContent = Number(sens.value).toFixed(4));
-    modeA.addEventListener("change", ()=>{ winSec.value="2.0"; winSecLabel.textContent="2.0"; updSec.value="2.0"; updSecLabel.textContent="2.0"; });
-    modeB.addEventListener("change", ()=>{ winSec.value="4.0"; winSecLabel.textContent="4.0"; updSec.value="6.0"; updSecLabel.textContent="6.0"; });
+    sens.addEventListener("input", ()=> { if (sensLabelEl) sensLabelEl.textContent = Number(sens.value).toFixed(4); });
+    modeA.addEventListener("change", ()=>{ winSec.value="2.0"; if (winSecLabelEl) winSecLabelEl.textContent="2.0"; updSec.value="2.0"; if (updSecLabelEl) updSecLabelEl.textContent="2.0"; });
+    modeB.addEventListener("change", ()=>{ winSec.value="4.0"; if (winSecLabelEl) winSecLabelEl.textContent="4.0"; updSec.value="6.0"; if (updSecLabelEl) updSecLabelEl.textContent="6.0"; });
     translateOn.addEventListener("change", ()=>{ /* keep */ });
 
     // init
