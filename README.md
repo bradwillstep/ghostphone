@@ -33,24 +33,30 @@
   </style>
 </head>
 <body>
+  <noscript>
+    <div style="border:1px solid #ff4d4d;background:#220;padding:12px;border-radius:10px;color:#ffd0d0;font-family:ui-monospace,monospace;margin-bottom:12px;">
+      JavaScript is disabled in your browser. This app requires JavaScript to run. Enable JavaScript for bradwillstep.github.io then reload.
+    </div>
+  </noscript>
+
   <h1>ULTRA LISTENER // HARDWIRED STABLE</h1>
 
   <div class="card">
     <div class="row">
-      <button onclick="app.loadModel()">Load AI Model</button>
-      <button onclick="app.startMic()">Start Mic</button>
-      <button class="danger" onclick="app.stop()" id="btnStop" disabled>Stop</button>
-      <button onclick="app.startCountdown()">Start Countdown</button>
-      <button class="danger" onclick="app.stopCountdown()" id="btnStopCd" disabled>Stop Countdown</button>
+      <button onclick="safeCall('loadModel')">Load AI Model</button>
+      <button onclick="safeCall('startMic')">Start Mic</button>
+      <button class="danger" onclick="safeCall('stop')" id="btnStop" disabled>Stop</button>
+      <button onclick="safeCall('startCountdown')">Start Countdown</button>
+      <button class="danger" onclick="safeCall('stopCountdown')" id="btnStopCd" disabled>Stop Countdown</button>
       <label class="toggle" title="Loop the countdown automatically">
         <input id="loopOn" type="checkbox" checked />
         <span class="track"><span class="thumb"></span></span>
         <span class="label">Loop</span>
       </label>
-      <button onclick="app.test()">Test Output</button>
-      <button onclick="app.selfCheck()">Self-check</button>
-      <button onclick="app.reset()">Reset Site</button>
-      <span class="pill">Build: <b id="build">hardwired-stable-v3-1767933524</b></span>
+      <button onclick="safeCall('test')">Test Output</button>
+      <button onclick="safeCall('selfCheck')">Self-check</button>
+      <button onclick="safeCall('reset')">Reset Site</button>
+      <span class="pill">Build: <b id="build">v4-safecall-1767933967-ks7j</b></span>
       <span class="pill">JS: <b id="jsok">YES</b></span>
       <span class="pill">Model<select id="modelSel" style="margin-left:8px;background:#000;color:#35ff6a;border:1px solid #0f3a18;border-radius:8px;padding:4px 6px;font-family:ui-monospace,monospace">
         <option value="Xenova/whisper-tiny" selected>whisper-tiny</option>
@@ -111,7 +117,33 @@
     </div>
   </div>
 
+  
   <script>
+    // Build marker
+    window.__UL_BUILD__ = "v4-safecall-1767933967-ks7j";
+    // Safe button dispatcher so clicks never "do nothing" silently.
+    function safeCall(fnName){
+      try{
+        if (!window.app) throw new Error("app object is not initialized (script failed to run or was blocked).");
+        const fn = window.app[fnName];
+        if (typeof fn !== "function") throw new Error("Missing function: " + fnName);
+        return fn();
+      }catch(e){
+        // Try to show overlay if available, else alert
+        try{
+          const box = document.getElementById("errBox");
+          const ov = document.getElementById("overlay");
+          if (box && ov){
+            box.textContent = "Button failed: " + fnName + "\n" + (e?.message || e) + "\n\nFix: In Chrome → Site settings → JavaScript → Allow. Also disable adblock/VPN/Private DNS temporarily.";
+            ov.classList.add("show");
+            return;
+          }
+        }catch(_){}
+        alert("Button failed: " + fnName + "\n" + (e?.message || e));
+      }
+    }
+  </script>
+<script>
     const el = (id) => document.getElementById(id);
     const out = el("out");
     const errBox = el("errBox");
