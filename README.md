@@ -51,6 +51,12 @@
       <button onclick="app.reset()">Reset Site</button>
       <span class="pill">Build: <b id="build">hardwired-stable-1767932752-cj0ui</b></span>
       <span class="pill">JS: <b id="jsok">YES</b></span>
+      <span class="pill">Model<select id="modelSel" style="margin-left:8px;background:#000;color:#35ff6a;border:1px solid #0f3a18;border-radius:8px;padding:4px 6px;font-family:ui-monospace,monospace">
+        <option value="Xenova/whisper-tiny" selected>whisper-tiny</option>
+        <option value="Xenova/whisper-base">whisper-base</option>
+        <option value="Xenova/whisper-tiny.en">whisper-tiny.en</option>
+        <option value="Xenova/whisper-base.en">whisper-base.en</option>
+      </select></span>
     </div>
 
     <div class="row" style="margin-top:10px">
@@ -365,7 +371,9 @@
         env.allowLocalModels = false;
         env.useBrowserCache = true;
         const t0 = performance.now();
-        state.asr = await pipeline("automatic-speech-recognition", el("modelSel").value, { device:"wasm" });
+        const ms = document.getElementById("modelSel");
+        const modelId = ms ? ms.value : "Xenova/whisper-tiny";
+        state.asr = await pipeline("automatic-speech-recognition", modelId, { device:"wasm" });
         const dt = performance.now()-t0;
         state.modelLoaded = true;
         el("mstate").textContent = "READY";
