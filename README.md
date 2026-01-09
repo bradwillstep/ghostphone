@@ -3,7 +3,10 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Ultra Listener — Hybrid Hardwired (hybrid-hardwired-1767921463-dk9nbr)</title>
+  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+  <title>Ultra Listener — AutoFix Build (autofix-1767923584-cok9tc)</title>
   <style>
     :root{color-scheme:dark;--bg:#000;--panel:#050505;--border:#0f3a18;--green:#35ff6a;--green-dim:rgba(53,255,106,.78);--red:#ff4d4d;--font:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;}
     body{margin:0;padding:14px;background:var(--bg);color:var(--green);font-family:var(--font);letter-spacing:.2px}
@@ -46,7 +49,7 @@
   </style>
 </head>
 <body>
-  <h1>ULTRA LISTENER // HYBRID HARDWIRED (hybrid-hardwired-1767921463-dk9nbr)</h1>
+  <h1>ULTRA LISTENER // AUTOFIX (autofix-1767923584-cok9tc)</h1>
 
   <div class="grid">
     <div class="card">
@@ -57,7 +60,7 @@
             <option value="Xenova/whisper-tiny" selected>whisper-tiny (multilingual) — recommended</option>
             <option value="Xenova/whisper-tiny.en">whisper-tiny.en (English-only)</option>
           </select>
-          <div class="small">Build: <b id="buildId">hybrid-hardwired-1767921463-dk9nbr</b> • JS: <b id="jsOk">YES</b></div>
+          <div class="small">Build: <b id="buildId">autofix-1767923584-cok9tc</b> • JS: <b id="jsOk">YES</b> • CacheFix: <b id="fixState">starting…</b></div>
         </div>
 
         <div class="col" style="flex: 1 1 320px">
@@ -67,7 +70,6 @@
             <span class="track"><span class="thumb"></span></span>
             <span class="label">Translate to English</span>
           </label>
-          <div class="small">Engine: <b id="engTxt">MAIN</b></div>
         </div>
       </div>
 
@@ -85,21 +87,9 @@
         <span class="kv"><span id="dotMic" class="dot"></span><span class="key">MIC</span><span id="micState" class="val">OFF</span></span>
         <span class="kv"><span class="key">LEVEL</span><span id="lvlDb" class="val">-inf dBFS</span></span>
         <span class="kv"><span class="key">ASR</span><span id="asrMs" class="val">—</span></span>
-        <span class="kv"><span class="key">TICKS</span><span id="ticks" class="val">0</span></span>
-        <span class="kv"><span class="key">LAST</span><span id="lastMsg" class="val">—</span></span>
       </div>
 
       <div class="row" style="margin-top:10px">
-        <div class="col" style="flex:1 1 360px">
-          <div class="small"><b>ENGINE</b></div>
-          <label class="toggle" title="Optional worker for inference. Load MAIN first.">
-            <input id="workerOn" type="checkbox" />
-            <span class="track"><span class="thumb"></span></span>
-            <span class="label">Use Worker engine</span>
-          </label>
-          <div class="small">Load model in MAIN first, then toggle Worker.</div>
-        </div>
-
         <div class="col" style="flex:1 1 360px">
           <div class="small"><b>ALWAYS-ON</b></div>
           <label class="toggle">
@@ -117,36 +107,20 @@
         <div class="col" style="flex:1 1 340px">
           <div class="small"><b>UPDATE</b> sec: <span id="updSecLabel">1.5</span></div>
           <input id="updSec" type="range" min="0.5" max="3" step="0.5" value="1.5" />
-        
-      
-      <div class="row" style="margin-top:10px">
-        <div class="col" style="flex:1 1 360px">
-          <div class="small"><b>REAL-TIME MODE</b></div>
-          <label class="toggle" title="Toggle between Low-latency (A) and Accurate (B)">
-            <input id="modeAB" type="checkbox" />
-            <span class="track"><span class="thumb"></span></span>
-            <span class="label">B = slower, more accurate</span>
-          </label>
-          <div class="small">OFF (A): low-latency (shorter window, adaptive longer update). ON (B): accurate (longer window, waits to finish).</div>
         </div>
-      </div>
-<div class="row" style="margin-top:10px">
-        <div class="col" style="flex:1 1 360px">
-          <div class="small"><b>SENSITIVITY</b> (audio threshold): <span id="sensLabel">0.0003</span></div>
-          <input id="sens" type="range" min="0.00005" max="0.01" step="0.00005" value="0.0003" />
-          <div class="small">Lower = more sensitive (captures quiet talk, more false blanks). Higher = stricter.</div>
-        </div>
+
         <div class="col" style="flex:1 1 360px">
           <div class="small"><b>DIAG</b></div>
-          <label class="toggle" title="Show why a tick was skipped (silence / model not loaded)">
+          <label class="toggle">
             <input id="diagOn" type="checkbox" checked />
             <span class="track"><span class="thumb"></span></span>
-            <span class="label">Diagnostic status</span>
+            <span class="label">Show status</span>
           </label>
-          <div class="small">Keeps you from guessing if the app is doing anything.</div>
         </div>
       </div>
-</div>
+
+      <div class="small" style="margin-top:10px">
+        This build automatically unregisters old service workers + clears Cache Storage once per session to prevent “dead buttons” for visitors.
       </div>
     </div>
 
@@ -177,7 +151,8 @@
   </div>
 
   <script>
-    document.getElementById("buildId").textContent = "hybrid-hardwired-1767921463-dk9nbr";
+    document.getElementById("buildId").textContent = "autofix-1767923584-cok9tc";
+
     function el(id){ return document.getElementById(id); }
     function showOverlay(title, sub, err){
       el("ovTitle").textContent = title || "Message";
@@ -192,9 +167,49 @@
       }
       el("overlay").classList.add("show");
     }
-    window.addEventListener("error", (e) => showOverlay("Script error", "Buttons won't work because JS crashed.", (e?.message||"") + "\n" + (e?.filename||"") + ":" + (e?.lineno||"")));
+
+    window.addEventListener("error", (e) => showOverlay("Script error", "JS crashed.", (e?.message||"") + "\n" + (e?.filename||"") + ":" + (e?.lineno||"")));
     window.addEventListener("unhandledrejection", (e) => showOverlay("Unhandled rejection", "Async error occurred.", e?.reason?.message || e?.reason || ""));
 
+    const fixState = el("fixState");
+
+    async function autoFixCaches(){
+      // Run once per tab session to prevent infinite reload loops.
+      if (sessionStorage.getItem("ul_fix_done") === "1"){
+        fixState.textContent = "done";
+        return;
+      }
+      sessionStorage.setItem("ul_fix_done", "1");
+
+      try{
+        if ("serviceWorker" in navigator){
+          const regs = await navigator.serviceWorker.getRegistrations();
+          for (const r of regs) await r.unregister();
+        }
+      }catch(e){}
+
+      try{
+        if (window.caches){
+          const keys = await caches.keys();
+          for (const k of keys) await caches.delete(k);
+        }
+      }catch(e){}
+
+      // Force a one-time reload with a cache buster to ensure fresh JS.
+      try{
+        const url = new URL(location.href);
+        url.searchParams.set("fresh", String(Date.now()));
+        fixState.textContent = "reloading…";
+        location.replace(url.toString());
+      }catch(e){
+        fixState.textContent = "done";
+      }
+    }
+
+    // Kick off autofix ASAP
+    autoFixCaches();
+
+    // ===== App logic (same as before, hardwired onclick) =====
     const statusEl = el("status");
     const dotModel = el("dotModel");
     const dotMic = el("dotMic");
@@ -202,24 +217,17 @@
     const micState = el("micState");
     const lvlDb = el("lvlDb");
     const asrMs = el("asrMs");
-    const ticksEl = el("ticks");
-    const lastMsg = el("lastMsg");
-    const sens = el("sens");
-    const sensLabel = el("sensLabel");
-    const diagOn = el("diagOn");
-    const modeAB = el("modeAB");
-    const engTxt = el("engTxt");
 
     const modelSel = el("modelSel");
     const translateOn = el("translateOn");
-    const workerOn = el("workerOn");
     const alwaysOn = el("alwaysOn");
     const winSec = el("winSec");
     const winSecLabel = el("winSecLabel");
     const updSec = el("updSec");
     const updSecLabel = el("updSecLabel");
-    const out = el("out");
+    const diagOn = el("diagOn");
 
+    const out = el("out");
     const btnLoadModel = el("btnLoadModel");
     const btnStart = el("btnStart");
     const btnStop = el("btnStop");
@@ -233,7 +241,6 @@
 
     winSecLabel.textContent = Number(winSec.value).toFixed(1);
     updSecLabel.textContent = Number(updSec.value).toFixed(1);
-    sensLabel.textContent = Number(sens.value).toFixed(4);
 
     function requireMultilingualForTranslate(){
       if (translateOn.checked && String(modelSel.value).includes(".en")){
@@ -258,12 +265,13 @@
         }
       }catch(e){}
       try{ localStorage.clear(); sessionStorage.clear(); }catch(e){}
-      showOverlay("Reset complete", "Service workers & caches cleared. Close this tab and reopen with ?fresh=1", null);
+      showOverlay("Reset complete", "Now close this tab and reopen the page.", null);
     }
 
     // Audio capture ring buffer
     let audioCtx=null, stream=null, source=null, captureNode=null;
     let rb=null, rbSize=0, rbWrite=0, rbFilled=0;
+
     function rbInit(sr){
       rbSize = Math.max(1, Math.floor(sr*12));
       rb = new Float32Array(rbSize);
@@ -324,9 +332,8 @@
     }
     function stopMeter(){ if (meterTimer){ clearInterval(meterTimer); meterTimer=null; } }
 
-    // AI engines
+    // MAIN engine only (most reliable)
     let modelLoaded=false;
-    let loadedModelId=null;
     let asrMain=null;
 
     function cleanTranscript(raw){
@@ -342,98 +349,6 @@
       return t;
     }
 
-    // Optional worker
-    let worker=null;
-    let workerBusy=false;
-
-    function makeWorker(){
-      const workerCode = `
-        import { pipeline, env } from "https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2";
-        env.allowLocalModels = false;
-        env.useBrowserCache = true;
-        let asr = null;
-        function cleanTranscript(raw){
-          if (!raw) return "";
-          let t = String(raw);
-          t = t.replace(/[♪♫]+/g," ");
-          t = t.replace(/\\[([^\\]]+)\\]/g, " ");
-          t = t.replace(/\\(([^\\)]+)\\)/g, " ");
-          t = t.replace(/\\b(BLANK_AUDIO|MUS_AUDIO|NO_AUDIO|MUSIC)\\b/gi, " ");
-          t = t.replace(/\\s+/g," ").trim();
-          if (!/[A-Za-z]/.test(t)) return "";
-          if (/\\b(blank_audio|mus_audio|no_audio|music)\\b/i.test(t)) return "";
-          return t;
-        }
-        self.onmessage = async (ev) => {
-          const msg = ev.data || {};
-          if (msg.type === "load"){
-            try{
-              asr = await pipeline("automatic-speech-recognition", msg.modelId, { device: msg.device || "wasm" });
-              self.postMessage({ type:"loaded", ok:true, modelId: msg.modelId });
-            } catch (e){
-              self.postMessage({ type:"loaded", ok:false, error: String(e?.message || e) });
-            }
-            return;
-          }
-          if (msg.type === "run"){
-            if (!asr){
-              self.postMessage({ type:"result", ok:false, error:"model_not_loaded" });
-              return;
-            }
-            const t0 = performance.now();
-            try{
-              const pcm = new Float32Array(msg.pcm);
-              const res = await asr(pcm, { chunk_length_s: msg.windowSec, stride_length_s: 0.2, return_timestamps:false, task: msg.task });
-              const text = cleanTranscript((res?.text || "").trim());
-              const dt = performance.now() - t0;
-              self.postMessage({ type:"result", ok:true, text, ms: dt });
-            } catch (e){
-              const dt = performance.now() - t0;
-              self.postMessage({ type:"result", ok:false, error: String(e?.message || e), ms: dt });
-            }
-          }
-        };
-      `;
-      const url = URL.createObjectURL(new Blob([workerCode], { type:"text/javascript" }));
-      return new Worker(url, { type:"module" });
-    }
-
-    async function ensureWorkerLoaded(){
-      if (!workerOn.checked) return;
-      if (!modelLoaded) return;
-      if (worker) return;
-
-      engTxt.textContent = "WORKER";
-      worker = makeWorker();
-      worker.onmessage = (ev) => {
-        const msg = ev.data || {};
-        if (msg.type === "loaded"){
-          workerBusy = false;
-      asrBusy = false;
-          if (msg.ok){
-            setStatus("worker ready");
-            setTimeout(() => setStatus("listening"), 500);
-          } else {
-            showOverlay("Worker load failed", "Switching back to MAIN.", msg.error || "unknown");
-            workerOn.checked = false;
-            engTxt.textContent = "MAIN";
-            try{ worker.terminate(); }catch{}
-            worker = null;
-          }
-        }
-        if (msg.type === "result"){
-          workerBusy = false;
-          if (typeof msg.ms === "number") asrMs.textContent = msg.ms.toFixed(0) + "ms";
-          if (msg.ok && msg.text) { appendWords(msg.text); if (diagOn.checked) lastMsg.textContent = "ok"; } else { if (diagOn.checked) lastMsg.textContent = msg.ok ? "empty" : "err"; }
-          asrBusy = false;
-        setStatus("listening");
-        }
-      };
-      workerBusy = true;
-      worker.postMessage({ type:"load", modelId: loadedModelId, device:"wasm" });
-    }
-
-    // Load model MAIN using dynamic import (no module script tag)
     async function appLoadModel(){
       if (modelLoaded) return;
       if (!requireMultilingualForTranslate()) return;
@@ -442,23 +357,18 @@
       dotModel.classList.add("warn");
       modelState.textContent = "LOADING…";
       setStatus("loading model…");
-      engTxt.textContent = "MAIN";
 
       try{
         const mod = await import("https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2");
-        const pipeline = mod.pipeline;
-        const env = mod.env;
+        const { pipeline, env } = mod;
         env.allowLocalModels = false;
         env.useBrowserCache = true;
-
         const t0 = performance.now();
         asrMain = await pipeline("automatic-speech-recognition", modelSel.value, { device: "wasm" });
         const dt = performance.now() - t0;
-
         asrMs.textContent = dt.toFixed(0) + "ms(load)";
         modelLoaded = true;
-        loadedModelId = modelSel.value;
-        modelSel.disabled = true;
+
         dotModel.classList.remove("warn");
         dotModel.classList.add("on");
         modelState.textContent = "READY";
@@ -468,21 +378,9 @@
         dotModel.classList.remove("warn");
         modelState.textContent = "ERROR";
         setStatus("model load error");
-        showOverlay("Model load failed (MAIN)", "Likely blocked CDN/model downloads (VPN/Private DNS/adblock).", e?.message || e);
+        showOverlay("Model load failed", "Likely blocked CDN/model downloads (VPN/Private DNS/adblock).", e?.message || e);
       }
     }
-
-    workerOn.addEventListener("change", async () => {
-      if (workerOn.checked){
-        await ensureWorkerLoaded();
-      } else {
-        engTxt.textContent = "MAIN";
-        if (worker){
-          try{ worker.terminate(); }catch{}
-          worker = null;
-        }
-      }
-    });
 
     async function appStartMic(){
       if (!navigator.mediaDevices?.getUserMedia){
@@ -562,7 +460,7 @@
     }
 
     function appHelp(){
-      showOverlay("Help", "Load AI Model (MAIN) first. If MAIN stutters, enable Worker after load. Use Reset Site if caching/PWA is interfering.", null);
+      showOverlay("Help", "This build auto-fixes caches. If model load hangs, disable VPN/Private DNS/adblock and retry.", null);
     }
     function appClear(){ out.value=""; }
     async function appCopy(){
@@ -570,123 +468,63 @@
       catch{ showOverlay("Copy failed","Clipboard blocked. Select and copy manually."); }
     }
 
-    // Inference loop
+    // Inference loop with no-overlap
     let inferTimer=null;
-    let tickCount = 0;
-    let asrBusy = false;
-    let lastRunAt = 0;
+    let busy=false;
+
     function stopInferenceLoop(){
       if (inferTimer){ clearTimeout(inferTimer); inferTimer=null; }
-      workerBusy = false;
+      busy = false;
     }
+
     function startInferenceLoop(){
       stopInferenceLoop();
       const tick = async () => {
-        // Do not overlap inference. Wait for current run to finish.
-        if (asrBusy) {
-          if (diagOn.checked) lastMsg.textContent = "busy (waiting)";
-          // try again soon
-          inferTimer = setTimeout(tick, 250);
-          return;
-        }
+        if (busy){ inferTimer = setTimeout(tick, 250); return; }
         await runInferenceTick();
-
-        // Choose next schedule based on A/B mode:
-        // A (unchecked): aim lower latency, but if ASR is slow, back off automatically.
-        // B (checked): accuracy, allow longer runs and wait a bit after completion.
-        const base = Number(updSec.value);
-        const asrSec = Number(String(asrMs.textContent || "0").replace("ms",""))/1000 || 0;
-        let next = base;
-
-        if (!modeAB.checked) {
-          // A: low-latency target, but never schedule faster than ASR time + 0.2s
-          next = Math.max(0.5, base, asrSec + 0.2);
-        } else {
-          // B: accuracy. Space runs more, especially if ASR is heavy.
-          next = Math.max(1.5, base, asrSec + 0.6);
-        }
-
-        inferTimer = setTimeout(tick, Math.round(next*1000));
+        inferTimer = setTimeout(tick, Number(updSec.value)*1000);
       };
-      inferTimer = setTimeout(tick, 700);
-    };
-      inferTimer = setTimeout(tick, 700);
-    }
-
-    async function runMain(pcm, windowSec){
-      const t0 = performance.now();
-      const res = await asrMain(pcm, { chunk_length_s: windowSec, stride_length_s: 0.2, return_timestamps:false, task: (translateOn.checked ? "translate" : undefined) });
-      const dt = performance.now() - t0;
-      asrMs.textContent = dt.toFixed(0) + "ms";
-      const cleaned = cleanTranscript((res?.text || "").trim());
-      if (cleaned) { appendWords(cleaned); if (diagOn.checked) lastMsg.textContent = "ok"; }
+      inferTimer = setTimeout(tick, 800);
     }
 
     async function runInferenceTick(){
-      tickCount++; ticksEl.textContent = String(tickCount);
-      if (!audioCtx || !rb) { if (diagOn.checked) lastMsg.textContent = "no mic"; return; }
-      if (!modelLoaded) { if (diagOn.checked) lastMsg.textContent = "model not loaded"; return; }
+      if (!audioCtx || !rb || !modelLoaded || !asrMain) { if (diagOn.checked) setStatus("waiting"); return; }
       const sr = audioCtx.sampleRate;
       let windowSec = Number(winSec.value);
-      // Mode presets
-      if (!modeAB.checked) {
-        // A: low-latency
-        windowSec = Math.min(windowSec, 2.0);
-      } else {
-        // B: accuracy
-        windowSec = Math.max(windowSec, 3.0);
-      }
       if (rbFilled < Math.floor(sr*1.0)) return;
 
       const pcm = rbGetLast(windowSec, sr);
       const m = maxAbs(pcm);
-      const thr = Number(sens.value);
-      if (m < (alwaysOn.checked ? thr : Math.max(thr*2, 0.001))) { if (diagOn.checked) lastMsg.textContent = "silence"; return; }
+      const thr = 0.0003;
+      if (m < (alwaysOn.checked ? thr : 0.001)) return;
 
+      busy = true;
       setStatus("transcribing…");
-      if (diagOn.checked) lastMsg.textContent = "transcribing";
-      asrBusy = true;
-      lastRunAt = Date.now();
 
-      if (workerOn.checked){
-        await ensureWorkerLoaded();
-        if (worker){
-          if (workerBusy) return;
-          workerBusy = true;
-          try{
-            worker.postMessage({ type:"run", pcm: pcm.buffer, windowSec: windowSec, task: (translateOn.checked ? "translate" : undefined) }, [pcm.buffer]);
-          } catch (e){
-            workerBusy = false;
-          }
-          return;
-        }
+      try{
+        const t0 = performance.now();
+        const res = await asrMain(pcm, { chunk_length_s: windowSec, stride_length_s: 0.2, return_timestamps:false, task: (translateOn.checked ? "translate" : undefined) });
+        const dt = performance.now() - t0;
+        asrMs.textContent = dt.toFixed(0) + "ms";
+        const cleaned = cleanTranscript((res?.text || "").trim());
+        if (cleaned) appendWords(cleaned);
+        setStatus("listening");
+      } catch (e){
+        showOverlay("ASR error", "Inference failed.", e?.message || e);
+        setStatus("error");
+      } finally {
+        busy = false;
       }
-
-      await runMain(pcm, windowSec);
-      asrBusy = false;
-      setStatus("listening");
     }
 
-    // UI bindings
+    // Wire non-inline (backup)
+    btnLoadModel.addEventListener("click", appLoadModel);
+    btnStart.addEventListener("click", appStartMic);
+    btnStop.addEventListener("click", appStop);
+    el("btnHelp").addEventListener("click", appHelp);
+
     winSec.addEventListener("input", () => { winSecLabel.textContent = Number(winSec.value).toFixed(1); });
     updSec.addEventListener("input", () => { updSecLabel.textContent = Number(updSec.value).toFixed(1); });
-    translateOn.addEventListener("change", requireMultilingualForTranslate);
-    sens.addEventListener("input", () => { sensLabel.textContent = Number(sens.value).toFixed(4); });
-    modeAB.addEventListener("change", () => {
-      if (modeAB.checked) {
-        // B: accuracy
-        if (Number(winSec.value) < 3.0) { winSec.value = "3.0"; winSecLabel.textContent = "3.0"; }
-        if (Number(updSec.value) < 2.0) { updSec.value = "2.0"; updSecLabel.textContent = "2.0"; }
-        if (diagOn.checked) lastMsg.textContent = "mode B";
-      } else {
-        // A: low latency
-        if (Number(winSec.value) > 2.0) { winSec.value = "2.0"; winSecLabel.textContent = "2.0"; }
-        if (Number(updSec.value) > 1.5) { updSec.value = "1.5"; updSecLabel.textContent = "1.5"; }
-        if (diagOn.checked) lastMsg.textContent = "mode A";
-      }
-      if (audioCtx) startInferenceLoop();
-    });
-
 
     // Expose for inline onclick
     window.appLoadModel = appLoadModel;
