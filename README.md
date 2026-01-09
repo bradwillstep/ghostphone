@@ -48,8 +48,9 @@
         <span class="label">Loop</span>
       </label>
       <button onclick="app.test()">Test Output</button>
+      <button onclick="app.selfCheck()">Self-check</button>
       <button onclick="app.reset()">Reset Site</button>
-      <span class="pill">Build: <b id="build">hardwired-stable-1767932752-cj0ui</b></span>
+      <span class="pill">Build: <b id="build">hardwired-stable-v3-1767933524</b></span>
       <span class="pill">JS: <b id="jsok">YES</b></span>
       <span class="pill">Model<select id="modelSel" style="margin-left:8px;background:#000;color:#35ff6a;border:1px solid #0f3a18;border-radius:8px;padding:4px 6px;font-family:ui-monospace,monospace">
         <option value="Xenova/whisper-tiny" selected>whisper-tiny</option>
@@ -133,7 +134,7 @@
       meter:null,
       asr:null, modelLoaded:false,
       timer:null, busy:false, lastAsrMs:0,
-      cueTimer:null, cueStartsAt:0, cueEndsAt:0
+      cueTimer:null, cueStartsAt:0, cueEndsAt:0, cueProcessing:false
     };
 
     function rbInit(sr) {
@@ -250,47 +251,77 @@
     }
 
     function stopCountdown() {
-      if (state.cueTimer){ clearInterval(state.cueTimer); state.cueTimer=null; }
+      if (state.cueTimer){ clearTimeout(state.cueTimer); state.cueTimer=null; }
       state.cueStartsAt = 0; state.cueEndsAt = 0;
+      state.cueProcessing = false;
       el("cuestate").textContent = "OFF";
       el("cuein").textContent = "—";
       el("cueleft").textContent = "—";
       el("btnStopCd").disabled = true;
     }
+
     async function runCueTranscription() {
       if (!state.asr || !state.modelLoaded || !state.audioCtx) { log("[cue] not ready"); return; }
       const cap = Number(el("cap").value);
       await transcribeOnce(cap, true);
       log("[cue] done");
     }
+
     function startCountdown() {
       stopCountdown();
       el("btnStopCd").disabled = false;
+
       const delay = Number(el("cd").value);
       const cap = Number(el("cap").value);
       const now = Date.now();
       state.cueStartsAt = now + delay*1000;
       state.cueEndsAt = state.cueStartsAt + cap*1000;
+      state.cueProcessing = false;
 
-      state.cueTimer = setInterval(async ()=>{
+      const tick = async () => {
+        if (!state.cueStartsAt || !state.cueEndsAt) return; // stopped
         const t = Date.now();
-        if (t < state.cueStartsAt) {
+
+        if (t < state.cueStartsAt){
           el("cuestate").textContent = "OFF";
-          el("cuein").textContent = ((state.cueStartsAt - t)/1000).toFixed(1)+"s";
-          el("cueleft").textContent = cap.toFixed(1)+"s";
-        } else if (t < state.cueEndsAt) {
+          el("cuein").textContent = ((state.cueStartsAt - t)/1000).toFixed(1) + "s";
+          el("cueleft").textContent = cap.toFixed(1) + "s";
+          state.cueTimer = setTimeout(tick, 80);
+          return;
+        }
+
+        if (t >= state.cueStartsAt && t < state.cueEndsAt){
           el("cuestate").textContent = "ON";
           el("cuein").textContent = "0.0s";
-          el("cueleft").textContent = ((state.cueEndsAt - t)/1000).toFixed(1)+"s";
-        } else {
+          el("cueleft").textContent = ((state.cueEndsAt - t)/1000).toFixed(1) + "s";
+          state.cueTimer = setTimeout(tick, 80);
+          return;
+        }
+
+        // End reached: freeze UI and process exactly once
+        if (!state.cueProcessing){
+          state.cueProcessing = true;
           el("cuestate").textContent = "PROCESS";
-          clearInterval(state.cueTimer);
-          state.cueTimer = null;
-          await runCueTranscription();
-          stopCountdown();
-          if (el("loopOn").checked) {
-            setTimeout(()=>startCountdown(), 250);
+          el("cueleft").textContent = "0.0s";
+          // Clear timer so it doesn't fire again
+          if (state.cueTimer){ clearTimeout(state.cueTimer); state.cueTimer=null; }
+
+          try{
+            await runCueTranscription();
+          } finally {
+            // After processing, either loop or stop cleanly
+            const doLoop = el("loopOn").checked;
+            stopCountdown();
+            if (doLoop){
+              // small pause between loops
+              setTimeout(() => startCountdown(), 250);
+            }
           }
+        }
+      };
+
+      state.cueTimer = setTimeout(tick, 50);
+    }
         }
       }, 100);
     }
@@ -449,8 +480,38 @@
       showErr("Reset complete. Close this tab and reopen the page.");
     }
 
-    window.app = {
-      loadModel, startMic, stop, test, copy, clear, help, reset,
+    
+    function selfCheck(){
+      // Verify required DOM elements exist. Show results on-screen.
+      const required = [
+        "out","errBox","overlay",
+        "mstate","micstate","level","asrms",
+        "btnStop","btnStopCd","loopOn",
+        "cd","cap","win","upd","sens",
+        "cdLbl","capLbl","winLbl","updLbl","sensLbl",
+        "cuestate","cuein","cueleft",
+        "modelSel"
+      ];
+      const missing = required.filter(id => !document.getElementById(id));
+      const ok = required.length - missing.length;
+      const msg = [
+        "[SELF-CHECK]",
+        `Build: ${document.getElementById("build")?.textContent || "?"}`,
+        `OK: ${ok}/${required.length}`
+      ];
+      if (missing.length){
+        msg.push("Missing IDs:");
+        msg.push(...missing.map(x => " - " + x));
+      } else {
+        msg.push("All required elements are present.");
+      }
+      showErr(msg.join("\n"));
+      // Also write to output log for visibility
+      log(msg.join("\n"));
+    }
+
+window.app = {
+      loadModel, startMic, stop, test, copy, clear, help, reset, selfCheck,
       startCountdown, stopCountdown
     };
   </script>
