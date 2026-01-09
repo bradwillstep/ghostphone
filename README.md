@@ -143,6 +143,10 @@
     import { pipeline, env } from "https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2";
 
     const el = (id) => document.getElementById(id);
+    // Safe slider refs (ensure defined even if sliders are absent)
+    const winSec = el("winSec") || { value: "3.0" };
+    const updSec = el("updSec") || { value: "6.0" };
+
     // Cached label refs (avoid null crashes)
     const winSecLabelEl = el("winSecLabel");
     const updSecLabelEl = el("updSecLabel");
@@ -287,7 +291,7 @@
       if (!audioCtx || !rb || !modelLoaded || !asr) return;
       if (busy) return;
 
-      let windowSec = Number((winSecLabelEl && winSecLabelEl.textContent) ? winSecLabelEl.textContent : winSec.value);
+      let windowSec = Number((winSecLabelEl && winSecLabelEl.textContent) ? winSecLabelEl.textContent : (winSec && winSec.value));
       // derive from mode + slider values
       windowSec = modeB.checked ? Math.max(Number(windowSec), 3.0) : Math.min(Number(windowSec), 2.0);
       const sr = audioCtx.sampleRate;
@@ -440,8 +444,8 @@
       try{ await navigator.clipboard.writeText(out.value||""); }catch(e){ showError(e); }
     });
     sens.addEventListener("input", ()=> { if (sensLabelEl) sensLabelEl.textContent = Number(sens.value).toFixed(4); });
-    modeA.addEventListener("change", ()=>{ winSec.value="2.0"; if (winSecLabelEl) winSecLabelEl.textContent="2.0"; updSec.value="2.0"; if (updSecLabelEl) updSecLabelEl.textContent="2.0"; });
-    modeB.addEventListener("change", ()=>{ winSec.value="4.0"; if (winSecLabelEl) winSecLabelEl.textContent="4.0"; updSec.value="6.0"; if (updSecLabelEl) updSecLabelEl.textContent="6.0"; });
+    modeA.addEventListener("change", ()=>{ (winSec && winSec.value)="2.0"; if (winSecLabelEl) winSecLabelEl.textContent="2.0"; (updSec && updSec.value)="2.0"; if (updSecLabelEl) updSecLabelEl.textContent="2.0"; });
+    modeB.addEventListener("change", ()=>{ (winSec && winSec.value)="4.0"; if (winSecLabelEl) winSecLabelEl.textContent="4.0"; (updSec && updSec.value)="6.0"; if (updSecLabelEl) updSecLabelEl.textContent="6.0"; });
     translateOn.addEventListener("change", ()=>{ /* keep */ });
 
     // init
