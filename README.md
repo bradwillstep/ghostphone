@@ -92,6 +92,11 @@
           <div class="row">
             <button id="btnCue" title="Starts a timed capture window">Start Countdown</button>
             <button id="btnCueStop" class="danger" disabled>Stop Countdown</button>
+            <label class="toggle" title="Automatically repeat countdown/capture windows">
+              <input id="cueLoop" type="checkbox" checked />
+              <span class="track"><span class="thumb"></span></span>
+              <span class="label">Loop</span>
+            </label>
             <span class="pill">Speak in: <b id="cueIn">—</b></span>
             <span class="pill">Time left: <b id="cueLeft">—</b></span>
             <span class="pill">Mic cue: <b id="cueState">OFF</b></span>
@@ -220,6 +225,7 @@
     const countdownLabel = el("countdownLabel");
     const captureSec = el("captureSec");
     const captureLabel = el("captureLabel");
+    const cueLoop = el("cueLoop");
 
 
     function appendLine(s) {
@@ -455,9 +461,52 @@ let timer=null;
 
     function cleanText(raw) {
       if (!raw) return "";
-      let t=String(raw).replace(/\s+/g," ").trim();
-      // allow unicode letters
+      let t = String(raw);
+
+      // Remove common Whisper tags/captions
+      t = t.replace(/\[([^\]]+)\]/g, " ");
+      t = t.replace(/\(([^\)]+)\)/g, " ");
+      t = t.replace(/\b(BLANK_AUDIO|MUS_AUDIO|NO_AUDIO|MUSIC)\b/gi, " ");
+
+      // Collapse whitespace
+      t = t.replace(/\s+/g, " ").trim();
+
+      // Must contain letters in any language
       if (!/\p{L}/u.test(t)) return "";
+
+      const toks = t.split(" ").filter(Boolean);
+
+      // Drop pathological repeated single-letter/short-token spam e.g. "r r r r r ..."
+      // (This was your "train r r r ..." case)
+      if (toks.length > 25) {
+        const short = toks.filter(w => w.length <= 2).length;
+        if (short / toks.length > 0.85) return "";
+      }
+
+      // Also drop if a single 1–2 char token dominates heavily (e.g., "r" repeated)
+      if (toks.length > 40) {
+        const counts = new Map();
+        for (const w of toks) {
+          const k = w.toLowerCase();
+          counts.set(k, (counts.get(k) || 0) + 1);
+        }
+        let topK = null, topV = 0;
+        for (const [k,v] of counts.entries()){
+          if (v > topV){ topV=v; topK=k; }
+        }
+        if (topK && topK.length <= 2 && (topV / toks.length) > 0.7) return "";
+      }
+
+      // IMPORTANT: Do NOT drop repeated real words like "hello hello hello" — users may test like that.
+      return t;
+    }
+
+      // Drop repeated-word spam like "hello hello hello" > 10 tokens
+      if (toks.length > 12) {
+        const uniq = new Set(toks.map(w => w.toLowerCase()));
+        if (uniq.size <= 2) return "";
+      }
+
       return t;
     }
 
@@ -553,7 +602,7 @@ let timer=null;
         }
         return { kind:"ok" };
       } else {
-        appendLine("[RAW] (empty)");
+        /* no output for empty */
         return { kind:"empty" };
       }
     }
@@ -643,7 +692,13 @@ let timer=null;
           cueTimer = null;
           // Force one transcription of exactly the cue window
           await runCueTranscription();
+          // Loop immediately if enabled
+          const doLoop = cueLoop && cueLoop.checked;
           stopCountdown();
+          if (doLoop) {
+            // slight pause to avoid back-to-back overlaps
+            setTimeout(() => startCountdown(), 250);
+          }
         }
       }, 100);
     }
