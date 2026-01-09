@@ -125,7 +125,7 @@
       <div class="row" style="justify-content: space-between">
         <div>
           <div class="small"><b>OUTPUT</b></div>
-          <div class="small">Translated text appended continuously.</div>
+          <div class="small">Translated text appended continuously. If translation is empty, it falls back to [SRC] transcript so you still see words.</div>
         </div>
         <div class="row">
           <button id="btnCopy">Copy</button>
@@ -324,7 +324,7 @@
       t = t.replace(/\(([^\)]+)\)/g, " ");
       t = t.replace(/\b(BLANK_AUDIO|MUS_AUDIO|NO_AUDIO|MUSIC)\b/gi, " ");
       t = t.replace(/\s+/g," ").trim();
-      if (!/[A-Za-z]/.test(t)) return "";
+      if (!/\p{L}/u.test(t)) return "";
       if (/\b(blank_audio|mus_audio|no_audio|music)\b/i.test(t)) return "";
       return t;
     }
@@ -539,10 +539,33 @@
         lastAsrMs = dt;
         asrMsEl.textContent = dt.toFixed(0) + "ms";
 
-        const cleaned = cleanTranscript((res?.text || "").trim());
-        if (cleaned){
-          appendWords(cleaned);
-          lastState.textContent = "ok";
+        let rawText = (res?.text || "").trim();
+        let cleaned = cleanTranscript(rawText);
+
+        // Fallback for real-world audio:
+        // Whisper "translate" often returns empty in noisy/overlapping speech. If that happens, try plain transcription once.
+        if (!cleaned && translateOn.checked) {
+          try {
+            const res2 = await asrMain(pcm, { chunk_length_s: windowSec, stride_length_s: 0.2, return_timestamps:false });
+            const raw2 = (res2?.text || "").trim();
+            const cleaned2 = cleanTranscript(raw2);
+            if (cleaned2) {
+              cleaned = cleaned2;
+              // mark as source-language (untranslated) so the user still gets words
+              appendWords("[SRC] " + cleaned2);
+              lastState.textContent = "src";
+            }
+          } catch (e2) {
+            // ignore fallback errors
+          }
+        }
+
+        if (cleaned) {
+          // If we already appended [SRC], avoid double-appending
+          if (lastState.textContent !== "src") {
+            appendWords(cleaned);
+            lastState.textContent = "ok";
+          }
         } else {
           lastState.textContent = "empty";
         }
