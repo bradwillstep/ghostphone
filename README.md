@@ -40,7 +40,7 @@
   </style>
 </head>
 <body>
-  <h1>ULTRA LISTENER // PROD OPTION 1 (TRANSCRIBE FIRST + 16k) (prod-opt1-16k-1767929561)</h1>
+  <h1>ULTRA LISTENER // PROD OPTION 1+ (16k + BOOST) (prod-opt1-16k-1767929561)</h1>
 
   <div class="grid">
     <div class="card">
@@ -48,8 +48,10 @@
         <div class="col" style="flex: 1 1 520px">
           <div class="small"><b>WHISPER MODEL</b></div>
           <select id="modelSel">
-            <option value="Xenova/whisper-tiny" selected>whisper-tiny (multilingual)</option>
-            <option value="Xenova/whisper-tiny.en">whisper-tiny.en (English-only)</option>
+            <option value="Xenova/whisper-tiny" selected>whisper-tiny (multilingual, fastest)</option>
+            <option value="Xenova/whisper-base">whisper-base (multilingual, better)</option>
+            <option value="Xenova/whisper-tiny.en">whisper-tiny.en (English-only, fastest)</option>
+            <option value="Xenova/whisper-base.en">whisper-base.en (English-only, better)</option>
           </select>
           <div class="small">Fixes your “(empty)” loop by: (1) transcribing first (no translate task) (2) resampling to 16k before ASR.</div>
         </div>
@@ -84,15 +86,41 @@
         <span class="pill">ASR: <b id="asrms">—</b></span>
         <span class="pill">Next: <b id="next">—</b></span>
       </div>
+      <div class="row" style="margin-top:10px">
+        <div class="col" style="flex:1 1 360px">
+          <div class="small"><b>TIMED CAPTURE</b></div>
+          <div class="row">
+            <button id="btnCue" title="Starts a timed capture window">Start Countdown</button>
+            <button id="btnCueStop" class="danger" disabled>Stop Countdown</button>
+            <span class="pill">Speak in: <b id="cueIn">—</b></span>
+            <span class="pill">Time left: <b id="cueLeft">—</b></span>
+            <span class="pill">Mic cue: <b id="cueState">OFF</b></span>
+          </div>
+          <div class="small">Use this to capture exactly what you want. When Mic cue = ON, speak clearly into the mic.</div>
+        </div>
+
+        <div class="col" style="flex:1 1 340px">
+          <div class="small"><b>Countdown</b> (seconds): <span id="countdownLabel">3</span></div>
+          <input id="countdownSec" type="range" min="0" max="10" step="1" value="3" />
+          <div class="small">Delay before the capture window opens.</div>
+        </div>
+
+        <div class="col" style="flex:1 1 340px">
+          <div class="small"><b>Capture window</b> (seconds): <span id="captureLabel">6</span></div>
+          <input id="captureSec" type="range" min="2" max="15" step="1" value="6" />
+          <div class="small">How long you have to speak during the cue.</div>
+        </div>
+      </div>
+
 
       <div class="row" style="margin-top:10px">
         <div class="col" style="flex:1 1 340px">
           <div class="small"><b>Window</b> sec: <span id="winLabel">3.0</span></div>
-          <input id="win" type="range" min="2" max="10" step="0.5" value="3.0" />
+          <input id="win" type="range" min="2" max="10" step="0.5" value="4.0" />
         </div>
         <div class="col" style="flex:1 1 340px">
           <div class="small"><b>Base update</b> sec: <span id="updLabel">2.5</span></div>
-          <input id="upd" type="range" min="1" max="10" step="0.5" value="2.5" />
+          <input id="upd" type="range" min="1" max="10" step="0.5" value="3.0" />
         </div>
         <div class="col" style="flex:1 1 340px">
           <div class="small"><b>Sensitivity</b>: <span id="sensLabel">0.0002</span></div>
@@ -163,6 +191,7 @@
 
     const modelSel = el("modelSel");
     const translatePass = el("translatePass");
+    const qualityBoost = el("qualityBoost");
     const modeA = el("modeA");
     const modeB = el("modeB");
 
@@ -182,6 +211,16 @@
     const win = el("win"); const winLabel = el("winLabel");
     const upd = el("upd"); const updLabel = el("updLabel");
     const sens = el("sens"); const sensLabel = el("sensLabel");
+    const btnCue = el("btnCue");
+    const btnCueStop = el("btnCueStop");
+    const cueIn = el("cueIn");
+    const cueLeft = el("cueLeft");
+    const cueState = el("cueState");
+    const countdownSec = el("countdownSec");
+    const countdownLabel = el("countdownLabel");
+    const captureSec = el("captureSec");
+    const captureLabel = el("captureLabel");
+
 
     function appendLine(s) {
       const prefix = out.value.length && !out.value.endsWith("\n") ? "\n" : "";
@@ -398,7 +437,14 @@
     }
 
     // ===== Loop (no overlap + adaptive) =====
-    let timer=null;
+    
+    // Timed capture cue state
+    let cueTimer = null;
+    let cueActive = false;
+    let cueEndsAt = 0;
+    let cueStartsAt = 0;
+
+let timer=null;
     let busy=false;
     let lastAsr=0;
 
@@ -415,8 +461,58 @@
       return t;
     }
 
+    function mergeText(primary, secondary){
+      const norm = (s) => String(s||"").toLowerCase().replace(/[^\p{L}0-9\s]/gu,"").replace(/\s+/g," ").trim();
+      const A = norm(primary).split(" ").filter(Boolean);
+      const B = norm(secondary).split(" ").filter(Boolean);
+      const setA = new Set(A);
+      const extras = [];
+      for (const w of B){
+        if (!setA.has(w)){
+          setA.add(w);
+          extras.push(w);
+        }
+      }
+      if (!extras.length) return primary;
+      return primary + " " + extras.join(" ");
+    }
+
+
+
     async function transcribeOnce(windowSec) {
-      const pcmRaw = rbGetLast(windowSec);
+      
+      const pcmRaw0 = rbGetLast(windowSec);
+
+      function highpass(input, sr, cutoff=120){
+        const out = new Float32Array(input.length);
+        const rc = 1.0 / (2*Math.PI*cutoff);
+        const dt = 1.0 / sr;
+        const alpha = rc / (rc + dt);
+        let y = 0;
+        let prevX = input[0] || 0;
+        for (let i=0;i<input.length;i++){
+          const x = input[i];
+          y = alpha * (y + x - prevX);
+          out[i] = y;
+          prevX = x;
+        }
+        return out;
+      }
+
+      function rmsNormalize(input, targetRms=0.08){
+        let sum=0;
+        for (let i=0;i<input.length;i++) sum += input[i]*input[i];
+        const rms = Math.sqrt(sum / Math.max(1, input.length));
+        if (rms < 1e-6) return input;
+        const gain = Math.min(6.0, targetRms / rms);
+        const out = new Float32Array(input.length);
+        for (let i=0;i<input.length;i++) out[i] = input[i]*gain;
+        return out;
+      }
+
+      const pcmHp = highpass(pcmRaw0, audioCtx.sampleRate, 120);
+      const pcmRaw = rmsNormalize(pcmHp, 0.08);
+
       const m = maxAbs(pcmRaw);
       const thr = Number(sens.value);
       if (m < thr) return { kind:"silence" };
@@ -430,9 +526,21 @@
       const dt1 = performance.now() - t0;
       lastAsr = dt1;
       asrmsEl.textContent = dt1.toFixed(0) + "ms";
-      const text1 = cleanText((r1?.text || "").trim());
+      let text1 = cleanText((r1?.text || "").trim());
 
       if (text1) {
+        if (qualityBoost && qualityBoost.checked) {
+          try {
+            const extraWin = Math.min(10.0, windowSec + 1.5);
+            const pcmRaw2 = rbGetLast(extraWin);
+            const pcmHp2 = highpass(pcmRaw2, audioCtx.sampleRate, 120);
+            const pcmNorm2 = rmsNormalize(pcmHp2, 0.08);
+            const pcm16b = resampleLinear(pcmNorm2, audioCtx.sampleRate, 16000);
+            const rExtra = await asr(pcm16b, { chunk_length_s: extraWin, stride_length_s: 0.2, return_timestamps:false });
+            const tExtra = cleanText((rExtra?.text || "").trim());
+            if (tExtra) { text1 = mergeText(text1, tExtra); }
+          } catch (e) {}
+        }
         appendLine(text1);
         if (translatePass.checked) {
           // translate pass on same 16k audio
@@ -480,11 +588,77 @@
       timer = setTimeout(loop, 900);
     }
 
-    // ===== Wiring =====
+    
+    async function runCueTranscription(){
+      if (!audioCtx || !rb || !modelLoaded || !asr) { appendLine("[cue] not ready"); return; }
+      // Use exact capture window length
+      const windowSec = Number(captureSec.value);
+      // Reuse the same pipeline as transcribeOnce, but label output
+      try {
+        await transcribeOnce(windowSec);
+        appendLine("[cue] done");
+      } catch(e) {
+        appendLine("[cue] error: " + (e?.message || e));
+      }
+    }
+
+    function stopCountdown(){
+      if (cueTimer) { clearInterval(cueTimer); cueTimer = null; }
+      cueActive = false;
+      cueStartsAt = 0;
+      cueEndsAt = 0;
+      cueIn.textContent = "—";
+      cueLeft.textContent = "—";
+      cueState.textContent = "OFF";
+      btnCueStop.disabled = true;
+      btnCue.disabled = false;
+    }
+
+    function startCountdown(){
+      stopCountdown();
+      const delay = Number(countdownSec.value);
+      const dur = Number(captureSec.value);
+      const now = Date.now();
+      cueStartsAt = now + delay*1000;
+      cueEndsAt = cueStartsAt + dur*1000;
+      btnCue.disabled = true;
+      btnCueStop.disabled = false;
+
+      cueTimer = setInterval(async () => {
+        const t = Date.now();
+        if (t < cueStartsAt){
+          cueState.textContent = "OFF";
+          cueIn.textContent = ((cueStartsAt - t)/1000).toFixed(1) + "s";
+          cueLeft.textContent = (dur).toFixed(1) + "s";
+        } else if (t >= cueStartsAt && t < cueEndsAt){
+          cueState.textContent = "ON";
+          cueIn.textContent = "0.0s";
+          cueLeft.textContent = ((cueEndsAt - t)/1000).toFixed(1) + "s";
+        } else {
+          // cue finished
+          cueState.textContent = "PROCESSING";
+          cueIn.textContent = "—";
+          cueLeft.textContent = "0.0s";
+          clearInterval(cueTimer);
+          cueTimer = null;
+          // Force one transcription of exactly the cue window
+          await runCueTranscription();
+          stopCountdown();
+        }
+      }, 100);
+    }
+
+// ===== Wiring =====
     btnLoad.addEventListener("click", loadModel);
     btnMic.addEventListener("click", startMic);
     btnStop.addEventListener("click", stopAll);
     btnTest.addEventListener("click", () => appendLine("[TEST] output append works"));
+
+    btnCue.addEventListener("click", startCountdown);
+    btnCueStop.addEventListener("click", stopCountdown);
+    countdownSec.addEventListener("input", () => countdownLabel.textContent = String(countdownSec.value));
+    captureSec.addEventListener("input", () => captureLabel.textContent = String(captureSec.value));
+
     btnClear.addEventListener("click", () => out.value="");
     btnCopy.addEventListener("click", async () => {
       try { await navigator.clipboard.writeText(out.value||""); } catch {}
@@ -500,13 +674,16 @@
     upd.addEventListener("input", () => updLabel.textContent = Number(upd.value).toFixed(1));
     sens.addEventListener("input", () => sensLabel.textContent = Number(sens.value).toFixed(4));
 
-    modeA.addEventListener("change", () => { win.value="3.0"; winLabel.textContent="3.0"; upd.value="2.5"; updLabel.textContent="2.5"; if (audioCtx) startLoop(); });
-    modeB.addEventListener("change", () => { win.value="6.0"; winLabel.textContent="6.0"; upd.value="8.0"; updLabel.textContent="8.0"; if (audioCtx) startLoop(); });
+    modeA.addEventListener("change", () => { win.value="4.0"; winLabel.textContent="4.0"; upd.value="3.0"; updLabel.textContent="3.0"; if (audioCtx) startLoop(); });
+    modeB.addEventListener("change", () => { win.value="8.0"; winLabel.textContent="8.0"; upd.value="10.0"; updLabel.textContent="10.0"; if (audioCtx) startLoop(); });
 
     // Init labels
     winLabel.textContent = Number(win.value).toFixed(1);
     updLabel.textContent = Number(upd.value).toFixed(1);
     sensLabel.textContent = Number(sens.value).toFixed(4);
+    countdownLabel.textContent = String(countdownSec.value);
+    captureLabel.textContent = String(captureSec.value);
+
   </script>
 </body>
 </html>
